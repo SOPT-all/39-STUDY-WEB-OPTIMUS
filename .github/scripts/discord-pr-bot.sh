@@ -39,6 +39,21 @@ mention() {
   if [ -n "$id" ]; then echo "<@$id>"; else echo "@$1"; fi
 }
 
+# 스레드 이름: "[표시 ]PR #N 제목" (Discord 100자 제한 → 90자)
+thread_name() {
+  local name
+  name=$(printf '%sPR #%s %s' "${1:+$1 }" "$PR_NUMBER" "$PR_TITLE")
+  echo "${name:0:90}"
+}
+
+# 스레드 이름·보관 상태 변경: update_thread THREAD_ID NAME ARCHIVED(true|false)
+# 알림 본체는 이미 나갔으므로 실패해도 경고만 남긴다.
+update_thread() {
+  local resp
+  resp=$(discord PATCH "/channels/$1" "$(jq -n --arg n "$2" --argjson a "$3" '{name: $n, archived: $a, locked: false}')")
+  [ -n "$(jq -r '.id // empty' <<< "$resp")" ] || echo "::warning::스레드 상태 변경 실패: $resp"
+}
+
 join_lines() { paste -sd ',' - | sed 's/,/, /g'; }
 
 reviewer_text() {
@@ -132,9 +147,8 @@ if [ -z "$META" ]; then
   MESSAGE_ID=$(jq -r '.id // empty' <<< "$RESP")
   [ -n "$MESSAGE_ID" ] || { echo "Discord post failed: $RESP"; exit 1; }
 
-  THREAD_NAME=$(printf 'PR #%s %s' "$PR_NUMBER" "$PR_TITLE" | cut -c1-90)
   RESP=$(discord POST "/channels/$DISCORD_CHANNEL_ID/messages/$MESSAGE_ID/threads" \
-    "$(jq -n --arg n "$THREAD_NAME" '{name: $n, auto_archive_duration: 10080}')")
+    "$(jq -n --arg n "$(thread_name)" '{name: $n, auto_archive_duration: 10080}')")
   THREAD_ID=$(jq -r '.id // empty' <<< "$RESP")
   [ -n "$THREAD_ID" ] || { echo "Discord thread create failed: $RESP"; exit 1; }
 
@@ -196,9 +210,21 @@ case "$ACTION" in
   ready_for_review) REPLY="👀 리뷰 준비 완료!" ;;
 esac
 
+# 다시 열리면 보관을 풀고 이름의 ✅/🗑️ 표시를 뗀다(답글보다 먼저)
+if [ "$ACTION" = "reopened" ]; then
+  update_thread "$THREAD_ID" "$(thread_name)" false
+fi
+
 if [ -n "$REPLY" ]; then
   RESP=$(discord POST "/channels/$THREAD_ID/messages" "$(message_json "$REPLY")")
   [ -n "$(jq -r '.id // empty' <<< "$RESP")" ] || { echo "Discord thread reply failed: $RESP"; exit 1; }
+fi
+
+# 닫히면 이름에 결과 표시를 붙이고 보관해 사이드바에서 뺀다(답글 다음).
+# 잠그지는 않아서 머지 후에도 글을 쓸 수 있고, 글을 쓰면 다시 열린다.
+if [ "$ACTION" = "closed" ]; then
+  if [ "$MERGED" = "true" ]; then PREFIX="✅"; else PREFIX="🗑️"; fi
+  update_thread "$THREAD_ID" "$(thread_name "$PREFIX")" true
 fi
 
 echo "Handled '$ACTION' for PR #$PR_NUMBER."

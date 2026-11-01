@@ -1,0 +1,26 @@
+name: Discord PR Bot Backfill
+
+# 봇을 붙이기 전에 닫혔거나 정책이 바뀌기 전에 만들어진 PR 스레드를 현재 정책으로 한 번에 맞춘다.
+# Actions → Discord PR Bot Backfill → Run workflow 로 수동 실행한다.
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read # 메타데이터 댓글 조회
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Sync Discord threads
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+        run: bash .github/scripts/discord-backfill.sh

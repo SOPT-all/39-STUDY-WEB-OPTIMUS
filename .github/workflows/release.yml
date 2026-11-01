@@ -26,6 +26,9 @@ jobs:
       - uses: googleapis/release-please-action@v5
         id: release
         with:
+          # SOPT-all 조직이 GITHUB_TOKEN 의 PR 생성을 막고 있어 개인 토큰(PAT)으로 릴리즈 PR 을 만든다.
+          # PAT 로 만든 PR 은 다른 워크플로(PR 디스코드 봇, 컨벤션 검사)도 정상적으로 트리거한다.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 

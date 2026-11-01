@@ -74,14 +74,21 @@ git config core.hooksPath .githooks
 
 > Node 프로젝트라면 `release-please-config.json` 의 `release-type` 을 `node` 로 바꾸면 `package.json` 버전도 함께 올라가요.
 
-#### 2. 레포 설정
+#### 2. 릴리즈 PR 용 토큰 만들기
 
-- **Settings → Actions → General → Workflow permissions** 에서 **Allow GitHub Actions to create and approve pull requests** 체크 (릴리즈 PR 생성에 필요)
+SOPT-all 처럼 조직이 **GitHub Actions 의 PR 생성을 막아둔 경우** `GITHUB_TOKEN` 으로는 릴리즈 PR 을 만들 수 없어서 개인 토큰(PAT)을 사용해요.
+
+1. [Fine-grained token 생성](https://github.com/settings/personal-access-tokens/new)
+2. Resource owner: 조직 · Repository access: 대상 레포만
+3. Permissions: **Contents** `Read and write`, **Pull requests** `Read and write`
+
+> 조직이 Actions 의 PR 생성을 허용한다면 PAT 없이 레포 **Settings → Actions → General → Allow GitHub Actions to create and approve pull requests** 만 체크하고, `release.yml` 의 `token` 을 `secrets.GITHUB_TOKEN` 으로 바꿔도 돼요.
 
 #### 3. Repository Secrets
 
 | Secret | 값 |
 | :-- | :-- |
+| `RELEASE_PLEASE_TOKEN` | 위에서 만든 토큰 |
 | `DISCORD_BOT_TOKEN` | 디스코드 봇 토큰 (Week 1 PR 봇과 공유) |
 | `DISCORD_RELEASE_CHANNEL_ID` | 릴리즈 알림 채널 id |
 
@@ -89,5 +96,6 @@ git config core.hooksPath .githooks
 
 ### 📌 참고
 
-- 릴리즈 PR 은 `GITHUB_TOKEN` 으로 만들어져서 다른 워크플로(PR 디스코드 봇, 컨벤션 검사)가 실행되지 않아요. GitHub 의 무한 루프 방지 정책이에요.
-- 같은 이유로 `release: published` 이벤트도 발생하지 않아서, 디스코드 알림은 `release.yml` 안에서 이어서 보내요.
+- 릴리즈 PR 을 PAT 로 만들기 때문에 다른 PR 처럼 디스코드 PR 봇과 컨벤션 검사가 실행돼요. (`GITHUB_TOKEN` 으로 만든 PR 은 무한 루프 방지 정책 때문에 다른 워크플로를 트리거하지 않아요)
+- 디스코드 릴리즈 알림은 별도 `release: published` 워크플로 대신 `release.yml` 안에서 이어서 보내요. 릴리즈가 만들어진 직후 같은 실행 안에서 보내서 토큰 종류와 상관없이 동작해요.
+- 릴리즈 PR 작성자는 토큰을 만든 사람 계정으로 표시되고, 토큰이 만료되면 릴리즈 PR 이 만들어지지 않으니 만료일을 챙겨주세요.

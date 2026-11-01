@@ -421,16 +421,17 @@ echo <span class="s">"❌ 컨벤션에 맞지 않아요"</span>; exit 1
   <div class="eyebrow">13 · 트러블슈팅 ②</div>
   <h2>공용 <code style="font-size:.85em">test</code> 브랜치에서 생긴 일</h2>
   <div class="row" style="align-items:flex-start">
-    <pre><span class="c"># Week 1 Main PR(#2)이 아직 리뷰 중인데</span>
+    <pre><span class="c"># Week 1 Main PR 이 아직 리뷰 중인데</span>
 main  ── 처음 상태
-test  ── Week 1 ── <span class="k">Week 3 (#4 머지)</span>
+test  ── Week 1 ── <span class="k">Week 3 머지</span>
 
-<span class="c"># #2 (test → main) 에 Week 3 까지 섞여버림 😱</span>
+<span class="c"># Week 1 Main PR (test → main) 에</span>
+<span class="c"># Week 3 까지 섞여버림 😱</span>
 
-<span class="c"># 해결: test 를 #4 머지 직전으로 되돌리고</span>
-git push --force-with-lease=test:bb5e83c \
-  origin 30abaaf:test
-<span class="c"># Week 3 는 #6 으로 다시 올려서 #2 머지 후 반영</span></pre>
+<span class="c"># 해결: main · test 를 처음 상태로 되돌리고</span>
+git push --force-with-lease=test:&lt;현재&gt; \
+  origin 9926475:test
+<span class="c"># Week 1(#7) · Week 3(#6) 를 auto → test 로 다시 올림</span></pre>
     <ul class="points">
       <li><code>test</code> 를 모두가 같이 쓰다 보니, <strong>앞 주차 Main PR 이 머지되기 전에</strong> 다음 작업이 들어가면 섞여요.</li>
       <li>revert 로 되돌리면 나중에 릴리즈 노트에 <strong>같은 항목이 두 번</strong> 찍혀서, 히스토리를 되돌리는 쪽을 택했어요.</li>

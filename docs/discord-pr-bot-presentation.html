@@ -190,7 +190,7 @@
     <div class="tl-item"><div class="ev">🙋 리뷰어 지정/해제<small>review_requested · removed</small></div><p><span class="tag card-t">카드</span>리뷰어 목록 갱신 <span class="tag thread-t">스레드</span>리뷰어 멘션</p></div>
     <div class="tl-item"><div class="ev">🔨 커밋 푸시<small>synchronize</small></div><p><span class="tag thread-t">스레드</span>커밋 수 + 최신 커밋 메시지</p></div>
     <div class="tl-item"><div class="ev">✏️ PR 수정<small>edited</small></div><p><span class="tag card-t">카드</span>제목 · 작업 요약 · 연관 이슈 갱신</p></div>
-    <div class="tl-item"><div class="ev">✅ 머지 / 닫기<small>closed</small></div><p><span class="tag card-t">카드</span>상태 표시 <span class="tag thread-t">스레드</span>머지/종료 알림</p></div>
+    <div class="tl-item"><div class="ev">✅ 머지 / 닫기<small>closed</small></div><p><span class="tag card-t">카드</span>상태 표시 <span class="tag thread-t">스레드</span>머지/종료 알림 → 이름에 ✅/🗑️ 붙이고 보관</p></div>
   </div>
 </section>
 
@@ -313,11 +313,11 @@
   <div class="eyebrow">08 · 머지하면</div>
   <div class="row">
     <div style="flex:.7">
-      <h2>카드에 상태가<br>찍혀요</h2>
+      <h2>카드에 상태가 찍히고<br>스레드는 정리돼요</h2>
       <ul class="points">
         <li>채널의 카드에 <strong>✅ 머지 완료</strong>가 붙어서, 채널만 훑어봐도 PR 상태를 알 수 있어요.</li>
-        <li>머지 없이 닫으면 <strong>🗑️ 머지 없이 종료됨</strong>.</li>
-        <li>다시 열면 같은 스레드에서 <strong>🔄 이어서</strong> 진행돼요.</li>
+        <li>스레드 이름에 <strong>✅ / 🗑️</strong> 를 붙이고 <strong>보관</strong>해서, 사이드바엔 <strong>진행 중인 PR 만</strong> 남아요.</li>
+        <li>삭제가 아니라 보관이라 기록은 그대로예요. 다시 열면 같은 스레드에서 <strong>🔄 이어서</strong> 진행돼요.</li>
       </ul>
     </div>
     <div class="dc">
@@ -337,7 +337,7 @@
         </div>
       </div>
       <div class="dc-thread">
-        <div class="dc-head">🧵 PR #1</div>
+        <div class="dc-head">🧵 ✅ PR #1 <span style="color:var(--dc-sub);font-weight:400;font-size:.8rem">· 보관됨</span></div>
         <div class="dc-body">
           <div class="msg"><div class="avatar">🤖</div><div><div class="content">🔨 새 커밋 푸시 (총 2개)</div></div></div>
           <div class="msg new"><div class="avatar">🤖</div><div><div class="content">✅ <code>test</code> 에 머지되었어요!</div></div></div>
@@ -401,7 +401,7 @@
   <h2>합세 · 앱잼에서 3단계면 끝</h2>
   <div style="display:flex;flex-direction:column;gap:1.6rem">
     <div class="step"><div class="n">1</div><div><h3>디스코드 봇 만들고 서버에 초대</h3><p>Developer Portal 에서 봇 생성 → 토큰 복사 → 초대 링크로 서버에 추가</p></div></div>
-    <div class="step"><div class="n">2</div><div><h3>파일 2개 복사</h3><p><code>.github/workflows/discord-pr-bot.yml</code> · <code>.github/scripts/discord-pr-bot.sh</code></p></div></div>
+    <div class="step"><div class="n">2</div><div><h3>파일 복사</h3><p><code>.github/workflows/discord-pr-bot.yml</code> · <code>.github/scripts/discord-pr-bot.sh</code><br>기존 PR 스레드까지 정리하려면 <code>discord-backfill</code> 워크플로도 함께 (Actions 에서 버튼 한 번)</p></div></div>
     <div class="step"><div class="n">3</div><div><h3>Secrets 3개 등록</h3><p><code>DISCORD_BOT_TOKEN</code> · <code>DISCORD_PR_CHANNEL_ID</code> · <code>DISCORD_USER_MAP</code></p></div></div>
   </div>
   <p style="margin-top:1.8rem">자세한 방법은 <code>docs/discord-pr-bot.md</code> 에 정리해뒀어요.</p>

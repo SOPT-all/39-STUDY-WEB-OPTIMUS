@@ -1,0 +1,40 @@
+name: Discord PR Bot
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - review_requested
+      - review_request_removed
+      - edited
+      - synchronize
+      - closed
+
+permissions: {}
+
+# 같은 PR 의 이벤트가 동시에 들어와도(opened + review_requested 등) 순서대로 처리해 스레드가 중복 생성되지 않게 한다.
+concurrency:
+  group: discord-pr-bot-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: write # 메타데이터 댓글 작성
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Notify Discord
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_PR_CHANNEL_ID }}
+          DISCORD_USER_MAP: ${{ secrets.DISCORD_USER_MAP }}
+        run: bash .github/scripts/discord-pr-bot.sh

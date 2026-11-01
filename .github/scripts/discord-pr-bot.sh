@@ -138,12 +138,16 @@ if [ -z "$META" ]; then
   THREAD_ID=$(jq -r '.id // empty' <<< "$RESP")
   [ -n "$THREAD_ID" ] || { echo "Discord thread create failed: $RESP"; exit 1; }
 
-  # 팀원 전원을 스레드 멤버로 추가해 사이드바에 노출(실패해도 무시)
-  jq -r '.[]?' <<< "$DISCORD_USER_MAP" | while read -r uid; do
-    [ -n "$uid" ] && discord PUT "/channels/$THREAD_ID/thread-members/$uid" > /dev/null || true
+  INITIAL_REVIEWERS=$(event '[.pull_request.requested_reviewers[]?.login]' | jq -c .)
+
+  # 작성자 + 처음 지정된 리뷰어만 스레드 멤버로 추가해 사이드바에 노출(실패해도 무시).
+  # 전원을 추가하면 "스레드에 추가했어요" 시스템 메시지가 인원수만큼 쌓인다.
+  # 이후 지정되는 리뷰어는 스레드 멘션으로 자동 참여된다.
+  jq -r --arg a "$AUTHOR" --argjson r "$INITIAL_REVIEWERS" \
+    '([$a] + $r | unique)[] as $l | .[$l] // empty' <<< "$DISCORD_USER_MAP" | while read -r uid; do
+    discord PUT "/channels/$THREAD_ID/thread-members/$uid" > /dev/null || true
   done
 
-  INITIAL_REVIEWERS=$(event '[.pull_request.requested_reviewers[]?.login]' | jq -c .)
   META=$(jq -nc --arg c "$DISCORD_CHANNEL_ID" --arg m "$MESSAGE_ID" --arg t "$THREAD_ID" \
     --argjson r "$INITIAL_REVIEWERS" '{channel_id: $c, message_id: $m, thread_id: $t, initial_reviewers: $r}')
   gh api "repos/$REPO/issues/$PR_NUMBER/comments" -f body="$(printf '%s\n<!-- discord-pr-bot: %s -->' \

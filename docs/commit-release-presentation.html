@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Week 3 · 커밋 컨벤션 & 릴리즈 자동화</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --line: #262a33;
+    --text: #e8eaef;
+    --sub: #9aa1ad;
+    --accent: #ff5a4e;
+    --blue: #5865f2;
+    --green: #3fb950;
+    --yellow: #f0b232;
+    --red: #f85149;
+    --dc-bg: #313338;
+    --dc-text: #dbdee1;
+    --dc-sub: #949ba4;
+    --mono: "JetBrains Mono", "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: "Pretendard", -apple-system, sans-serif; overflow: hidden; }
+
+  .slide { position: absolute; inset: 0; display: none; flex-direction: column; justify-content: center; padding: 6vh 8vw 8vh; }
+  .slide.active { display: flex; animation: in .35s ease; }
+  @keyframes in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+  .eyebrow { color: var(--accent); font-weight: 700; font-size: 1.05rem; letter-spacing: .04em; margin-bottom: 1.2rem; }
+  h1 { font-size: 3.6rem; line-height: 1.2; font-weight: 800; letter-spacing: -.02em; }
+  h2 { font-size: 2.4rem; line-height: 1.3; font-weight: 800; letter-spacing: -.02em; margin-bottom: 2.2rem; }
+  h3 { font-size: 1.25rem; font-weight: 700; margin-bottom: .6rem; }
+  p, li { font-size: 1.25rem; line-height: 1.7; color: var(--sub); }
+  strong { color: var(--text); }
+  code { font-family: var(--mono); font-size: .88em; background: #232733; padding: .1em .4em; border-radius: 4px; color: #ffb4ad; }
+  .hl { color: var(--accent); }
+  .note { font-size: .95rem; color: #6b7280; margin-top: 1.4rem; }
+
+  .row { display: flex; gap: 3rem; align-items: center; }
+  .row > * { flex: 1; min-width: 0; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.4rem; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.4rem; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 1.6rem; }
+  .card .emoji { font-size: 2.2rem; margin-bottom: .8rem; }
+  .card p { font-size: 1.05rem; }
+
+  ul.points { list-style: none; display: flex; flex-direction: column; gap: 1rem; }
+  ul.points li { padding-left: 1.6rem; position: relative; }
+  ul.points li::before { content: ""; position: absolute; left: 0; top: .72em; width: .55rem; height: .55rem; border-radius: 50%; background: var(--accent); }
+
+  /* flow */
+  .flow { display: flex; align-items: stretch; gap: .6rem; }
+  .flow .node { flex: 1; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 1.1rem .8rem; text-align: center; }
+  .flow .node .emoji { font-size: 1.8rem; }
+  .flow .node h3 { margin: .45rem 0 .25rem; font-size: 1rem; }
+  .flow .node p { font-size: .85rem; line-height: 1.45; }
+  .flow .arrow { display: flex; align-items: center; color: var(--accent); font-size: 1.5rem; }
+  .flow .node.part1 { border-color: #3b82f6; }
+  .flow .node.part2 { border-color: var(--accent); }
+  .legend { display: flex; gap: 1.6rem; margin-top: 1.4rem; font-size: 1rem; color: var(--sub); }
+  .legend span::before { content: ""; display: inline-block; width: .8rem; height: .8rem; border-radius: 3px; margin-right: .4rem; vertical-align: -1px; }
+  .legend .l1::before { background: #3b82f6; } .legend .l2::before { background: var(--accent); }
+
+  /* terminal */
+  .term { background: #0b0d10; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,.4); }
+  .term-bar { background: #1a1d24; padding: .55rem .9rem; display: flex; gap: .45rem; }
+  .term-bar i { width: .7rem; height: .7rem; border-radius: 50%; background: #ff5f57; display: block; }
+  .term-bar i:nth-child(2) { background: #febc2e; } .term-bar i:nth-child(3) { background: #28c840; }
+  .term pre { border: 0; border-radius: 0; background: transparent; margin: 0; }
+  .t-prompt { color: #7ee787; } .t-err { color: #ff7b72; } .t-dim { color: #6e7681; } .t-ok { color: #7ee787; }
+
+  /* github comment */
+  .gh { background: #0d1117; border: 1px solid #30363d; border-radius: 10px; overflow: hidden; font-size: .95rem; box-shadow: 0 20px 50px rgba(0,0,0,.4); }
+  .gh-head { background: #161b22; border-bottom: 1px solid #30363d; padding: .6rem 1rem; color: #8b949e; font-size: .85rem; }
+  .gh-head b { color: #e6edf3; }
+  .gh-body { padding: 1rem 1.1rem; color: #e6edf3; line-height: 1.6; }
+  .gh-body h4 { font-size: 1rem; margin: .8rem 0 .4rem; }
+  .gh-body table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  .gh-body td, .gh-body th { border: 1px solid #30363d; padding: .35rem .6rem; text-align: left; }
+  .gh-body code { background: #262c36; color: #e6edf3; }
+  .check { display: flex; align-items: center; gap: .6rem; padding: .55rem 1rem; border-top: 1px solid #30363d; font-size: .9rem; color: #e6edf3; }
+  .check .x { color: var(--red); font-weight: 700; } .check .o { color: var(--green); font-weight: 700; }
+  .swap { display: grid; grid-template-columns: 1fr auto 1fr; gap: 1.2rem; align-items: center; }
+  .swap .arrow { color: var(--accent); font-size: 2rem; }
+
+  /* discord */
+  .dc { background: var(--dc-bg); border-radius: 12px; border: 1px solid #1e1f22; box-shadow: 0 20px 50px rgba(0,0,0,.4); overflow: hidden; }
+  .dc-head { padding: .7rem 1rem; border-bottom: 1px solid #1e1f22; color: #f2f3f5; font-weight: 700; font-size: .95rem; }
+  .dc-head .hash { color: var(--dc-sub); margin-right: .3rem; }
+  .msg { display: flex; gap: .75rem; padding: 1rem; }
+  .avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--blue); flex-shrink: 0; display: grid; place-items: center; font-size: 1.1rem; }
+  .who { color: #f2f3f5; font-weight: 600; font-size: .95rem; }
+  .bot { background: var(--blue); color: #fff; font-size: .62rem; font-weight: 700; padding: .05rem .3rem; border-radius: 3px; margin-left: .35rem; vertical-align: 2px; }
+  .content { color: var(--dc-text); line-height: 1.55; font-size: .92rem; white-space: pre-line; }
+  .content a { color: #00a8fc; }
+  .content .h3 { font-weight: 700; color: #f2f3f5; font-size: 1.05rem; }
+  .dc code { background: #2b2d31; color: var(--dc-text); }
+
+  /* timeline */
+  .tl { display: flex; flex-direction: column; gap: .8rem; }
+  .tl-item { display: grid; grid-template-columns: 5rem 1fr 1.1fr; gap: 1.2rem; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: .9rem 1.2rem; }
+  .tl-item .day { font-weight: 800; color: var(--accent); font-size: 1.1rem; }
+  .tl-item p { font-size: 1.02rem; }
+  .tl-item.final { border-color: var(--green); }
+  .pr-chip { font-family: var(--mono); font-size: .85rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: .35rem .6rem; color: #e6edf3; }
+  .pr-chip .open { color: var(--green); }
+
+  pre { background: #12141a; border: 1px solid var(--line); border-radius: 12px; padding: 1.1rem 1.3rem; font-family: var(--mono); font-size: .9rem; line-height: 1.65; color: #c9d1d9; overflow-x: auto; white-space: pre; }
+  pre .c { color: #6e7681; } pre .k { color: #ff7b72; } pre .s { color: #a5d6ff; } pre .g { color: #7ee787; }
+
+  table.t { width: 100%; border-collapse: collapse; font-size: 1.1rem; }
+  table.t th, table.t td { text-align: left; padding: .8rem 1rem; border-bottom: 1px solid var(--line); }
+  table.t th { color: var(--sub); font-weight: 600; font-size: .95rem; }
+  .ver { font-family: var(--mono); color: var(--text); }
+  .ver b { color: var(--accent); }
+
+  .layers { display: flex; flex-direction: column; gap: .8rem; }
+  .layer { border: 1px solid var(--line); border-radius: 12px; padding: 1rem 1.3rem; background: var(--panel); }
+  .layer.org { border-color: var(--red); background: rgba(248,81,73,.08); }
+  .layer.repo { margin-left: 2.5rem; opacity: .75; }
+  .layer h3 { font-size: 1.05rem; margin-bottom: .2rem; }
+  .layer p { font-size: .98rem; }
+
+  .step { display: flex; gap: 1.2rem; align-items: flex-start; }
+  .step .n { width: 2.4rem; height: 2.4rem; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 800; display: grid; place-items: center; flex-shrink: 0; font-size: 1.1rem; }
+
+  .progress { position: fixed; left: 0; bottom: 0; height: 4px; background: var(--accent); transition: width .3s ease; }
+  .counter { position: fixed; right: 2rem; bottom: 1.2rem; color: var(--sub); font-size: .9rem; font-variant-numeric: tabular-nums; }
+  .hint { position: fixed; left: 2rem; bottom: 1.2rem; color: #4b515c; font-size: .85rem; }
+  .title-slide h1 .hl { display: block; }
+  .badge-row { display: flex; gap: .6rem; margin-top: 2rem; }
+  .badge { border: 1px solid var(--line); border-radius: 999px; padding: .4rem 1rem; font-size: .95rem; color: var(--sub); }
+  .part { display: inline-block; font-size: .85rem; font-weight: 700; padding: .2rem .7rem; border-radius: 999px; margin-left: .6rem; vertical-align: 4px; }
+  .part.p1 { background: rgba(59,130,246,.18); color: #93c5fd; }
+  .part.p2 { background: rgba(255,90,78,.15); color: #ff8a80; }
+</style>
+</head>
+<body>
+
+<!-- 1. 표지 -->
+<section class="slide title-slide">
+  <div class="eyebrow">OPTIMUS · WEEK 3</div>
+  <h1>커밋만 잘 쓰면<span class="hl">릴리즈는 알아서</span></h1>
+  <p style="margin-top:1.4rem;font-size:1.4rem">커밋 컨벤션 자동 검사 + release-please 릴리즈 자동화</p>
+  <div class="badge-row">
+    <span class="badge">🙋 조영찬</span>
+    <span class="badge">🪝 Git Hooks</span>
+    <span class="badge">⚙️ GitHub Actions</span>
+    <span class="badge">🏷️ release-please</span>
+  </div>
+</section>
+
+<!-- 2. 문제 -->
+<section class="slide">
+  <div class="eyebrow">01 · 문제</div>
+  <h2>컨벤션은 있는데…</h2>
+  <div class="grid3">
+    <div class="card"><div class="emoji">🙈</div><h3>안 지켜져요</h3><p>README 에 규칙이 있어도 <code>수정</code>, <code>ㅇㅇ</code>, <code>final_진짜최종</code> 이 섞여요. 잡는 건 리뷰어의 눈뿐이에요.</p></div>
+    <div class="card"><div class="emoji">📜</div><h3>뭐가 바뀌었는지 몰라요</h3><p>합세 · 앱잼 배포 때마다 "이번에 뭐 들어갔지?" 를 커밋 로그 뒤져서 손으로 정리해요.</p></div>
+    <div class="card"><div class="emoji">🎲</div><h3>버전이 감이에요</h3><p>언제, 몇으로 버전을 올릴지 기준이 없어서 1.0 → 1.1 → 2.0 이 기분 따라 바뀌어요.</p></div>
+  </div>
+</section>
+
+<!-- 3. 아이디어 -->
+<section class="slide">
+  <div class="eyebrow">02 · 아이디어</div>
+  <h2>커밋 메시지에 <span class="hl">정보</span>를 담으면<br>기계가 읽을 수 있어요</h2>
+  <div class="row">
+    <pre><span class="k">feat</span>: PR 디스코드 알림 추가     <span class="c">→ 기능 추가</span>
+<span class="k">fix</span>: 스레드 중복 생성 수정       <span class="c">→ 버그 수정</span>
+<span class="k">docs</span>: 설정 가이드 추가           <span class="c">→ 문서</span>
+<span class="k">feat!</span>: 알림 포맷 전면 변경       <span class="c">→ 호환 깨짐</span></pre>
+    <ul class="points">
+      <li><strong>Part 1</strong> — 이 형식을 <strong>기계가 강제</strong>해요. (커밋 컨벤션 검사)</li>
+      <li><strong>Part 2</strong> — 이 형식을 <strong>기계가 읽고</strong> 버전과 릴리즈 노트를 만들어요. (릴리즈 자동화)</li>
+      <li>표준 이름: <strong>Conventional Commits</strong> + <strong>Semantic Versioning</strong></li>
+    </ul>
+  </div>
+</section>
+
+<!-- 4. 전체 흐름 -->
+<section class="slide">
+  <div class="eyebrow">03 · 전체 흐름</div>
+  <h2>커밋부터 디스코드까지</h2>
+  <div class="flow">
+    <div class="node part1"><div class="emoji">⌨️</div><h3>git commit</h3><p>로컬 훅이<br>메시지 검사</p></div>
+    <div class="arrow">→</div>
+    <div class="node part1"><div class="emoji">🔍</div><h3>PR</h3><p>CI 가 커밋 ·<br>PR 제목 검사</p></div>
+    <div class="arrow">→</div>
+    <div class="node part2"><div class="emoji">🔀</div><h3>main 머지</h3><p>release-please<br>실행</p></div>
+    <div class="arrow">→</div>
+    <div class="node part2"><div class="emoji">📝</div><h3>릴리즈 PR</h3><p>버전 + CHANGELOG<br>자동 작성</p></div>
+    <div class="arrow">→</div>
+    <div class="node part2"><div class="emoji">🏷️</div><h3>릴리즈</h3><p>태그 + Release<br>+ 디스코드</p></div>
+  </div>
+  <div class="legend"><span class="l1">Part 1 · 커밋 컨벤션</span><span class="l2">Part 2 · 릴리즈 자동화</span></div>
+</section>
+
+<!-- 5. 규칙 -->
+<section class="slide">
+  <div class="eyebrow">04 · PART 1 커밋 컨벤션<span class="part p1">규칙</span></div>
+  <h2>우리 레포의 규칙</h2>
+  <div class="row" style="align-items:flex-start">
+    <div>
+      <pre><span class="k">{type}</span>(<span class="s">{scope}</span>)<span class="k">!</span>: <span class="g">{작업 내용}</span>
+<span class="c">        선택     선택</span></pre>
+      <table class="t" style="margin-top:1.4rem">
+        <tr><th>type</th><th>의미</th></tr>
+        <tr><td><code>feat</code></td><td>새로운 자동화 기능</td></tr>
+        <tr><td><code>fix</code></td><td>버그 수정</td></tr>
+        <tr><td><code>refactor</code></td><td>동작 변화 없는 개선</td></tr>
+        <tr><td><code>docs</code></td><td>문서</td></tr>
+        <tr><td><code>chore</code></td><td>설정 · 기타</td></tr>
+      </table>
+    </div>
+    <ul class="points">
+      <li>README 에 원래 있던 규칙 그대로예요. <strong>새 규칙을 만든 게 아니라 지키게 만든 것</strong>이에요.</li>
+      <li>PR 제목도 검사해요: <code>[Week {n}][Test|Main] {작업명}</code></li>
+      <li><code>Merge pull request…</code> 처럼 git 이 만드는 메시지는 통과시켜요.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 6. 로컬 훅 -->
+<section class="slide">
+  <div class="eyebrow">05 · PART 1 커밋 컨벤션<span class="part p1">로컬</span></div>
+  <div class="row">
+    <div style="flex:.8">
+      <h2>커밋하는 순간<br>바로 막아요</h2>
+      <ul class="points">
+        <li>git 의 <strong>commit-msg 훅</strong> — 커밋이 만들어지기 직전에 실행되는 스크립트예요.</li>
+        <li>규칙에 안 맞으면 <strong>커밋 자체가 안 만들어져요.</strong></li>
+        <li>클론 후 딱 한 번:<br><code>git config core.hooksPath .githooks</code></li>
+        <li>셸 스크립트라 <strong>npm install 없이</strong> 동작해요.</li>
+      </ul>
+    </div>
+    <div class="term">
+      <div class="term-bar"><i></i><i></i><i></i></div>
+      <pre><span class="t-prompt">$</span> git commit -m "수정함"
+<span class="t-err">❌ 커밋 메시지가 컨벤션에 맞지 않아요.</span>
+
+  입력: 수정함
+
+  형식: {type}: {작업 내용}
+  type: feat, fix, refactor, docs, chore
+  예시: feat: PR 생성 시 리뷰어 자동 할당 …
+
+<span class="t-prompt">$</span> git commit -m "fix: 스레드 중복 생성 수정"
+<span class="t-ok">[auto/... 1a2b3c4] fix: 스레드 중복 생성 수정</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- 7. CI -->
+<section class="slide">
+  <div class="eyebrow">06 · PART 1 커밋 컨벤션<span class="part p1">CI</span></div>
+  <h2>훅을 안 켰어도 PR 에서 잡아요</h2>
+  <div class="swap">
+    <div class="gh">
+      <div class="gh-head"><b>github-actions</b> bot commented</div>
+      <div class="gh-body">
+        ❌ <b>컨벤션 검사 실패</b>
+        <h4>커밋 메시지</h4>
+        <table><tr><th>커밋</th><th>메시지</th></tr><tr><td><code>dd2cbb5</code></td><td>컨벤션 검사 테스트</td></tr></table>
+        <p style="font-size:.85rem;color:#8b949e;margin-top:.6rem;line-height:1.5">형식: <code>{type}: {작업 내용}</code><br>수정 방법: <code>git rebase -i</code> → <code>git push --force-with-lease</code></p>
+      </div>
+      <div class="check"><span class="x">✕</span> Commit Convention / check</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="gh">
+      <div class="gh-head"><b>github-actions</b> bot commented <span style="color:#8b949e">(edited)</span></div>
+      <div class="gh-body">✅ <b>컨벤션 검사 통과</b> — 커밋 메시지와 PR 제목이 모두 컨벤션을 지키고 있어요.</div>
+      <div class="check"><span class="o">✓</span> Commit Convention / check</div>
+    </div>
+  </div>
+  <p style="margin-top:1.6rem">실패하면 <strong>어떤 커밋이 왜</strong> 틀렸는지 댓글로 알려주고, 고치면 <strong>같은 댓글이 ✅ 로 바뀌어요.</strong> (댓글이 쌓이지 않아요)</p>
+  <p class="note">* PR #4 에서 실제로 일부러 틀린 커밋을 올려 테스트한 결과예요.</p>
+</section>
+
+<!-- 8. 단일 규칙 -->
+<section class="slide">
+  <div class="eyebrow">07 · PART 1 커밋 컨벤션<span class="part p1">설계</span></div>
+  <h2>규칙은 <span class="hl">한 곳</span>에만</h2>
+  <div class="row" style="align-items:flex-start">
+    <pre><span class="c"># .githooks/commit-msg</span>
+TYPES=<span class="s">"feat|fix|refactor|docs|chore"</span>
+
+<span class="k">if</span> [[ <span class="s">"$HEADER"</span> =~ ^($TYPES)(\(.+\))?!?:\ .+ ]]; <span class="k">then</span>
+  exit 0
+<span class="k">fi</span>
+echo <span class="s">"❌ 컨벤션에 맞지 않아요"</span>; exit 1
+
+
+<span class="c"># CI: PR 커밋마다 같은 파일을 실행</span>
+<span class="k">for</span> sha <span class="k">in</span> $(git rev-list --no-merges base..head); <span class="k">do</span>
+  bash .githooks/commit-msg <span class="s">"$sha 메시지"</span>
+<span class="k">done</span></pre>
+    <ul class="points">
+      <li>보통은 로컬 = husky + commitlint, CI = commitlint-action 처럼 <strong>설정이 두 벌</strong>이 돼요.</li>
+      <li>여기선 <strong>훅 스크립트 하나를 CI 도 그대로 실행</strong>해요.</li>
+      <li>type 을 추가하고 싶으면 <code>TYPES</code> 한 줄만 고치면 로컬 · CI 에 <strong>동시에</strong> 반영돼요.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 9. SemVer -->
+<section class="slide">
+  <div class="eyebrow">08 · PART 2 릴리즈 자동화<span class="part p2">버전 규칙</span></div>
+  <h2>커밋 type 이 곧 버전 규칙</h2>
+  <table class="t">
+    <tr><th>커밋</th><th>의미</th><th>버전 변화</th><th>릴리즈 노트</th></tr>
+    <tr><td><code>feat!</code> / <code>BREAKING CHANGE</code></td><td>호환이 깨지는 변경</td><td class="ver"><b>1</b>.0.0 → <b>2</b>.0.0</td><td>⚠ BREAKING CHANGES</td></tr>
+    <tr><td><code>feat</code></td><td>기능 추가</td><td class="ver">1.<b>0</b>.0 → 1.<b>1</b>.0</td><td>✨ 새로운 기능</td></tr>
+    <tr><td><code>fix</code> <code>refactor</code> <code>docs</code></td><td>수정 · 개선</td><td class="ver">1.0.<b>0</b> → 1.0.<b>1</b></td><td>🐛 · ♻️ · 📝</td></tr>
+    <tr><td><code>chore</code></td><td>설정 · 기타</td><td class="ver">변화 없음</td><td>표시 안 함</td></tr>
+  </table>
+  <p style="margin-top:1.6rem">사람이 버전을 고민할 필요가 없어요. <strong>커밋을 규칙대로 쓰는 것</strong>만으로 버전이 정해져요.</p>
+</section>
+
+<!-- 10. 릴리즈 PR -->
+<section class="slide">
+  <div class="eyebrow">09 · PART 2 릴리즈 자동화<span class="part p2">릴리즈 PR</span></div>
+  <h2>릴리즈 PR = 다음 릴리즈를 모아두는 대기실</h2>
+  <div class="tl">
+    <div class="tl-item"><div class="day">월</div><p>Week 3 PR 머지 <code>feat</code></p><div class="pr-chip"><span class="open">● Open</span> chore: release 1.1.0 <span style="color:#8b949e">생성</span></div></div>
+    <div class="tl-item"><div class="day">수</div><p>버그 수정 PR 머지 <code>fix</code></p><div class="pr-chip"><span class="open">● Open</span> chore: release 1.1.0 <span style="color:#8b949e">🐛 항목 추가</span></div></div>
+    <div class="tl-item"><div class="day">금</div><p>Week 4 PR 머지 <code>feat</code></p><div class="pr-chip"><span class="open">● Open</span> chore: release 1.1.0 <span style="color:#8b949e">✨ 항목 추가</span></div></div>
+    <div class="tl-item final"><div class="day">금</div><p><strong>"이제 릴리즈하자"</strong> → 릴리즈 PR 머지</p><div class="pr-chip">🏷️ v1.1.0 태그 + Release + 디스코드 🚀</div></div>
+  </div>
+  <p style="margin-top:1.4rem">릴리즈 PR 안에는 <code>CHANGELOG.md</code> · <code>version.txt</code> 변경이 들어 있고, <strong>머지 = 릴리즈 버튼</strong>이에요.</p>
+</section>
+
+<!-- 11. 실제 결과 -->
+<section class="slide">
+  <div class="eyebrow">10 · PART 2 릴리즈 자동화<span class="part p2">실제 결과</span></div>
+  <div class="row">
+    <div style="flex:.75">
+      <h2>우리 레포로<br>돌려보면</h2>
+      <ul class="points">
+        <li>release-please <code>--dry-run</code> 으로 <code>test</code> 브랜치를 분석한 실제 결과예요.</li>
+        <li>머지 커밋, <code>Initial commit</code> 처럼 <strong>규칙 밖 커밋은 자동으로 제외</strong>돼요.</li>
+        <li>첫 버전은 <code>1.0.0</code> 으로 시작해요.</li>
+      </ul>
+    </div>
+    <pre style="font-size:.82rem"><span class="g">title: chore: release 1.0.0</span>
+
+## 1.0.0 (2026-11-01)
+
+<span class="k">### ✨ 새로운 기능</span>
+* PR 이벤트 디스코드 알림 워크플로우 추가
+* release-please 릴리즈 자동화 및 디스코드 …
+* 커밋 컨벤션 검사 워크플로우 및 commit-msg 훅 …
+
+<span class="k">### 🐛 버그 수정</span>
+* 릴리즈 PR 생성에 개인 토큰 사용
+
+<span class="k">### ♻️ 리팩토링</span>
+* 스레드 멤버 추가를 작성자·리뷰어로 한정
+
+<span class="k">### 📝 문서</span>
+* 디스코드 PR 봇 설정 가이드 추가
+* 커밋 컨벤션 및 릴리즈 가이드 추가 …</pre>
+  </div>
+</section>
+
+<!-- 12. 디스코드 -->
+<section class="slide">
+  <div class="eyebrow">11 · PART 2 릴리즈 자동화<span class="part p2">디스코드</span></div>
+  <div class="row">
+    <div style="flex:.8">
+      <h2>릴리즈되면<br>채널에 알려요</h2>
+      <ul class="points">
+        <li>Week 1 디스코드 봇 토큰을 재사용해서 <strong>릴리즈 전용 채널</strong>로 보내요.</li>
+        <li>릴리즈 노트를 그대로 보여줘서 <strong>"이번 배포에 뭐 들어갔지?"</strong> 가 사라져요.</li>
+        <li>커밋 링크는 미리보기 카드가 안 뜨게 처리해 채널이 깔끔해요.</li>
+      </ul>
+    </div>
+    <div class="dc">
+      <div class="dc-head"><span class="hash">#</span>🚀release-노트</div>
+      <div class="msg">
+        <div class="avatar">🤖</div>
+        <div>
+          <div><span class="who">개발하는 하치와레</span><span class="bot">BOT</span></div>
+          <div class="content">🚀 <b><a>39-STUDY-WEB-OPTIMUS v1.0.0</a></b> 릴리즈
+
+<span class="h3">✨ 새로운 기능</span>
+* PR 이벤트 디스코드 알림 워크플로우 추가 (<a>6493fee</a>)
+* 커밋 컨벤션 검사 워크플로우 및 commit-msg 훅 추가 (<a>ec443d2</a>)
+
+<span class="h3">🐛 버그 수정</span>
+* 릴리즈 PR 생성에 개인 토큰 사용 (<a>f4ffff9</a>)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="note">* 예시 화면이에요. 실제 알림은 Week 3 가 main 에 머지된 뒤 첫 릴리즈에서 확인할 예정이에요.</p>
+</section>
+
+<!-- 13. 트러블슈팅 1 -->
+<section class="slide">
+  <div class="eyebrow">12 · 트러블슈팅 ①</div>
+  <h2>봇이 PR 을 못 만든다고요?</h2>
+  <div class="row" style="align-items:flex-start">
+    <div class="layers">
+      <div class="layer org"><h3>🔒 SOPT-all 조직 설정</h3><p>"GitHub Actions 는 PR 생성 금지" — 조직 관리자만 변경 가능</p></div>
+      <div class="layer repo"><h3>39-STUDY-WEB-OPTIMUS 레포 설정</h3><p>켜려고 했지만 <code>409 Conflict</code> — 위층이 막고 있음</p></div>
+    </div>
+    <div>
+      <p>release-please 는 <strong>GitHub Actions 봇 권한</strong>으로 릴리즈 PR 을 만드는데, 조직이 이걸 막고 있었어요.</p>
+      <p style="margin-top:1rem">→ <strong>개인 토큰(PAT)</strong> 으로 PR 을 만들게 바꿨어요. 조직은 봇만 막았지 사람 계정은 막지 않았거든요.</p>
+      <p style="margin-top:1rem">🎁 덤: 봇이 만든 PR 은 다른 워크플로를 실행시키지 않는데(무한루프 방지), 토큰으로 만들면 <strong>릴리즈 PR 에도 디스코드 PR 알림 · 컨벤션 검사가 돌아요.</strong></p>
+    </div>
+  </div>
+</section>
+
+<!-- 14. 트러블슈팅 2 -->
+<section class="slide">
+  <div class="eyebrow">13 · 트러블슈팅 ②</div>
+  <h2>공용 <code style="font-size:.85em">test</code> 브랜치에서 생긴 일</h2>
+  <div class="row" style="align-items:flex-start">
+    <pre><span class="c"># Week 1 Main PR(#2)이 아직 리뷰 중인데</span>
+main  ── 처음 상태
+test  ── Week 1 ── <span class="k">Week 3 (#4 머지)</span>
+
+<span class="c"># #2 (test → main) 에 Week 3 까지 섞여버림 😱</span>
+
+<span class="c"># 해결: test 를 #4 머지 직전으로 되돌리고</span>
+git push --force-with-lease=test:bb5e83c \
+  origin 30abaaf:test
+<span class="c"># Week 3 는 #6 으로 다시 올려서 #2 머지 후 반영</span></pre>
+    <ul class="points">
+      <li><code>test</code> 를 모두가 같이 쓰다 보니, <strong>앞 주차 Main PR 이 머지되기 전에</strong> 다음 작업이 들어가면 섞여요.</li>
+      <li>revert 로 되돌리면 나중에 릴리즈 노트에 <strong>같은 항목이 두 번</strong> 찍혀서, 히스토리를 되돌리는 쪽을 택했어요.</li>
+      <li>교훈: <strong>Main PR 머지 → 다음 주차 test 머지</strong> 순서를 지키기</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 15. 적용 -->
+<section class="slide">
+  <div class="eyebrow">14 · 우리 프로젝트에 적용하기</div>
+  <h2>합세 · 앱잼에서 3단계면 끝</h2>
+  <div style="display:flex;flex-direction:column;gap:1.5rem">
+    <div class="step"><div class="n">1</div><div><h3>파일 복사</h3><p><code>.githooks/</code> · <code>.github/workflows/</code> · <code>.github/scripts/</code> · <code>release-please-config.json</code> · <code>.release-please-manifest.json</code></p></div></div>
+    <div class="step"><div class="n">2</div><div><h3>토큰 · 시크릿 등록</h3><p><code>RELEASE_PLEASE_TOKEN</code> (조직이 막혀 있을 때) · <code>DISCORD_BOT_TOKEN</code> · <code>DISCORD_RELEASE_CHANNEL_ID</code></p></div></div>
+    <div class="step"><div class="n">3</div><div><h3>팀원 각자 훅 켜기</h3><p><code>git config core.hooksPath .githooks</code> — Node 프로젝트라면 <code>release-type: node</code> 로 바꾸면 <code>package.json</code> 버전도 같이 올라가요.</p></div></div>
+  </div>
+  <p style="margin-top:1.6rem">자세한 방법은 <code>docs/commit-release.md</code> 에 정리해뒀어요.</p>
+</section>
+
+<!-- 16. 회고 -->
+<section class="slide">
+  <div class="eyebrow">15 · 회고</div>
+  <h2>정리하며</h2>
+  <div class="grid2">
+    <div class="card"><h3>✅ 얻은 것</h3>
+      <ul class="points" style="margin-top:.8rem">
+        <li style="font-size:1.05rem">컨벤션을 <strong>사람 대신 기계</strong>가 지켜요.</li>
+        <li style="font-size:1.05rem">릴리즈 노트 · 버전을 <strong>손으로 안 써요.</strong></li>
+        <li style="font-size:1.05rem">Week 1 봇과 이어져 <strong>릴리즈도 디스코드로</strong> 와요.</li>
+      </ul>
+    </div>
+    <div class="card"><h3>🚀 다음에 해보고 싶은 것</h3>
+      <ul class="points" style="margin-top:.8rem">
+        <li style="font-size:1.05rem">릴리즈 시 <strong>자동 배포</strong>까지 연결</li>
+        <li style="font-size:1.05rem">PR 라벨로 릴리즈 노트 분류 보강</li>
+        <li style="font-size:1.05rem">커밋 메시지 <strong>AI 추천</strong></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 17. Q&A -->
+<section class="slide title-slide">
+  <div class="eyebrow">THANK YOU</div>
+  <h1>Q &amp; A</h1>
+  <p style="margin-top:1.4rem;font-size:1.3rem">PR: <code>[Week 3][Test] 커밋 컨벤션 &amp; 릴리즈 자동화</code></p>
+</section>
+
+<div class="progress" id="progress"></div>
+<div class="counter" id="counter"></div>
+<div class="hint">← → / Space 로 이동</div>
+
+<script>
+  const slides = [...document.querySelectorAll(".slide")];
+  let i = Math.min(Math.max(parseInt(location.hash.slice(1)) - 1 || 0, 0), slides.length - 1);
+
+  function show(n) {
+    i = Math.min(Math.max(n, 0), slides.length - 1);
+    slides.forEach((s, k) => s.classList.toggle("active", k === i));
+    document.getElementById("progress").style.width = ((i + 1) / slides.length) * 100 + "%";
+    document.getElementById("counter").textContent = `${i + 1} / ${slides.length}`;
+    history.replaceState(null, "", "#" + (i + 1));
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (["ArrowRight", "ArrowDown", "PageDown", " ", "Enter"].includes(e.key)) { e.preventDefault(); show(i + 1); }
+    if (["ArrowLeft", "ArrowUp", "PageUp", "Backspace"].includes(e.key)) { e.preventDefault(); show(i - 1); }
+    if (e.key === "Home") show(0);
+    if (e.key === "End") show(slides.length - 1);
+  });
+  document.addEventListener("click", (e) => show(e.clientX > innerWidth / 3 ? i + 1 : i - 1));
+
+  show(i);
+</script>
+</body>
+</html>

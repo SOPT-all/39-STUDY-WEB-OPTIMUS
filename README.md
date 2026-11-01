@@ -131,6 +131,9 @@ B --> C[main]
 | `docs`     | 문서 수정 (README, 발표 자료 등) |
 | `chore`    | 설정, 기타 작업                  |
 
+> 커밋 메시지와 PR 제목은 PR 에서 자동으로 검사해요.  
+> 로컬에서 커밋할 때도 검사하려면 클론 후 한 번 `git config core.hooksPath .githooks` 를 실행해주세요.
+
 #### 📌 PR 제목
 
 - `auto → test` 형식: `[Week {n}][Test] {작업명}`
@@ -143,3 +146,15 @@ B --> C[main]
 - 구현한 자동화 기능 및 동작 방식
 - 테스트 결과 (스크린샷, 실행 로그 등)
 - 어려웠던 점
+
+#### 📌 릴리즈
+
+- `main` 에 머지되면 커밋 type 을 기준으로 릴리즈 PR(`chore: release x.y.z`)이 자동으로 생성돼요.
+- 릴리즈 PR 을 머지하면 태그, GitHub Release, `CHANGELOG.md` 가 만들어지고 디스코드로 알림이 가요.
+
+| type                        | 버전 변화                       |
+| :-------------------------- | :------------------------------ |
+| `feat!` / `BREAKING CHANGE` | `1.0.0 → 2.0.0` (major)         |
+| `feat`                      | `1.0.0 → 1.1.0` (minor)         |
+| `fix` `refactor` `docs`     | `1.0.0 → 1.0.1` (patch)         |
+| `chore`                     | 릴리즈 노트에서 제외, 버전 유지 |

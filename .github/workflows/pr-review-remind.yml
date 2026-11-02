@@ -224,7 +224,7 @@ jobs:
               for (const r of items) {
                 if (budget <= 0) break;
                 const sink = new Set();
-                const line = `• [#${r.number} ${esc(clip(r.title, 80))}](${r.url}) | ${ago(now - r.createdAt)} 경과 | ${fmt(r, sink)}`;
+                const line = `• [#${r.number}](${r.url}) ${esc(clip(r.title, 80))} | ${ago(now - r.createdAt)} 경과 | ${fmt(r, sink)}`;
                 const nextDesc = descLen + line.length + 1;
                 if (nextDesc > DESC_LIMIT || totalChars + title.length + footer.length + nextDesc > TOTAL_LIMIT) break;
                 lines.push(line);
@@ -244,7 +244,7 @@ jobs:
             const content = [`**${heading}**`, ids.map((id) => `<@${id}>`).join(' ')].filter(Boolean).join('\n');
 
             const payload = {
-              username: process.env.BOT_NAME || 'PR Reminder',
+              username: process.env.BOT_NAME || '개발하는 잔망루피',
               content,
               embeds,
               allowed_mentions: { parse: [], users: ids }, // 매핑된 유저만 핑 허용

@@ -21,14 +21,59 @@ permissions:
   contents: read
   pull-requests: read
 
+env:
+  MIN_AGE_HOURS: '12'                 # 생성 후 N시간 미만 PR 제외
+  MIN_STALE_HOURS: '6'                # 마지막 활동 후 N시간 미만 PR 제외 (방금 업데이트된 PR 재촉 방지)
+  IGNORED_LABELS: 'WIP,no-remind,on-hold'
+  IGNORED_TERMS: '[WIP],DO NOT MERGE' # 제목에 포함 시 제외 (대소문자 무시)
+
 jobs:
   remind:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Print run context
-        run: |
-          # schedule 은 UTC 기준으로 실행되므로 실제 실행 시각을 UTC/KST 둘 다 확인
-          echo "event: ${{ github.event_name }}"
-          echo "utc  : $(date -u '+%Y-%m-%d %H:%M:%S')"
-          echo "kst  : $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M:%S')"
+      - name: Collect PRs needing attention
+        id: collect
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const HOUR = 3600 * 1000;
+            const now = Date.now();
+
+            // 빈 문자열/음수/NaN 은 기본값으로 대체 (Number('') === 0 함정 회피)
+            const num = (k, d) => {
+              const raw = process.env[k];
+              const v = Number(raw);
+              return raw !== undefined && raw.trim() !== '' && Number.isFinite(v) && v >= 0 ? v : d;
+            };
+            const list = (k) => (process.env[k] || '')
+              .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+
+            const minAge = num('MIN_AGE_HOURS', 0) * HOUR;
+            const minStale = num('MIN_STALE_HOURS', 0) * HOUR;
+            const ignoredLabels = new Set(list('IGNORED_LABELS'));
+            const ignoredTerms = list('IGNORED_TERMS');
+
+            const { owner, repo } = context.repo;
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner, repo, state: 'open', per_page: 100,
+            });
+
+            // 1차 필터: 추가 API 호출 없이 판별 가능한 조건 먼저 적용 (rate limit 절약)
+            const candidates = prs.filter((pr) => {
+              if (pr.draft) return false;
+              if (now - Date.parse(pr.created_at) < minAge) return false;
+              if (now - Date.parse(pr.updated_at) < minStale) return false;
+              if (pr.labels.some((l) => ignoredLabels.has((l.name || '').toLowerCase()))) return false;
+              const title = pr.title.toLowerCase();
+              if (ignoredTerms.some((t) => title.includes(t))) return false;
+              return true;
+            });
+
+            core.info(`열린 PR ${prs.length}건 중 리마인드 후보 ${candidates.length}건`);
+            core.setOutput('count', String(candidates.length));
+            await core.summary
+              .addHeading('PR Review Remind')
+              .addRaw(`열린 PR ${prs.length}건 / 후보 ${candidates.length}건\n`)
+              .addList(candidates.map((pr) => `#${pr.number} ${pr.title}`))
+              .write();

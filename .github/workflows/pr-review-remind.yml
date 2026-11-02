@@ -244,7 +244,7 @@ jobs:
             const content = [`**${heading}**`, ids.map((id) => `<@${id}>`).join(' ')].filter(Boolean).join('\n');
 
             const payload = {
-              username: process.env.BOT_NAME || 'PR Reminder',
+              username: process.env.BOT_NAME || '개발하는 잔망루피',
               content,
               embeds,
               allowed_mentions: { parse: [], users: ids }, // 매핑된 유저만 핑 허용

@@ -224,7 +224,7 @@ jobs:
               for (const r of items) {
                 if (budget <= 0) break;
                 const sink = new Set();
-                const line = `• [#${r.number} ${esc(clip(r.title, 80))}](${r.url}) | ${ago(now - r.createdAt)} 경과 | ${fmt(r, sink)}`;
+                const line = `• [#${r.number}](${r.url}) ${esc(clip(r.title, 80))} | ${ago(now - r.createdAt)} 경과 | ${fmt(r, sink)}`;
                 const nextDesc = descLen + line.length + 1;
                 if (nextDesc > DESC_LIMIT || totalChars + title.length + footer.length + nextDesc > TOTAL_LIMIT) break;
                 lines.push(line);

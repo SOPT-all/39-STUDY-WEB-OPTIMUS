@@ -294,3 +294,23 @@ jobs:
               core.setFailed(`Discord 전송 실패 (HTTP ${res.status}): ${body.slice(0, 500)}`);
               return;
             }
+
+      - name: Notify failure
+        if: failure() && env.SHOULD_SEND == 'true'
+        uses: actions/github-script@v7
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        with:
+          script: |
+            const hook = (process.env.DISCORD_WEBHOOK || '').trim().replace(/\/+$/, '');
+            if (!hook) return; // 시크릿 자체가 없으면 보낼 곳이 없음
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await fetch(hook, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                username: process.env.BOT_NAME || 'PR Reminder',
+                embeds: [{ title: 'PR 리마인드 워크플로 실패', url: runUrl, description: runUrl, color: 0xE74C3C }],
+                allowed_mentions: { parse: [] },
+              }),
+            }).catch((e) => core.warning(`실패 알림 전송 불가: ${e.message}`));

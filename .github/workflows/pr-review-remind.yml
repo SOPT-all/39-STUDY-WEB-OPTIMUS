@@ -33,7 +33,7 @@ env:
   IGNORED_LABELS: 'WIP,no-remind,on-hold'
   IGNORED_TERMS: '[WIP],DO NOT MERGE' # 제목에 포함 시 제외 (대소문자 무시)
   MAX_ITEMS: '20'                     # 메시지 과대 방지용 최대 표시 개수
-  BOT_NAME: 'PR Reminder'
+  BOT_NAME: '개발하는 잔망루피'
 
 jobs:
   remind:
@@ -244,7 +244,7 @@ jobs:
             const content = [`**${heading}**`, ids.map((id) => `<@${id}>`).join(' ')].filter(Boolean).join('\n');
 
             const payload = {
-              username: process.env.BOT_NAME || '개발하는 잔망루피',
+              username: process.env.BOT_NAME || 'PR Reminder',
               content,
               embeds,
               allowed_mentions: { parse: [], users: ids }, // 매핑된 유저만 핑 허용

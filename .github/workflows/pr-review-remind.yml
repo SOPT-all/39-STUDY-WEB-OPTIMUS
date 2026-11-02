@@ -28,15 +28,19 @@ env:
   REMIND_APPROVED: 'true'             # 승인 완료 PR 머지 독촉 여부
   IGNORED_LABELS: 'WIP,no-remind,on-hold'
   IGNORED_TERMS: '[WIP],DO NOT MERGE' # 제목에 포함 시 제외 (대소문자 무시)
+  MAX_ITEMS: '20'                     # 메시지 과대 방지용 최대 표시 개수
+  BOT_NAME: 'PR Reminder'
 
 jobs:
   remind:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Collect PRs needing attention
+      - name: Collect PRs and build Discord payload
         id: collect
         uses: actions/github-script@v7
+        env:
+          DISCORD_USER_MAP: ${{ secrets.DISCORD_USER_MAP || vars.DISCORD_USER_MAP }}
         with:
           script: |
             const HOUR = 3600 * 1000;
@@ -55,8 +59,38 @@ jobs:
             const minStale = num('MIN_STALE_HOURS', 0) * HOUR;
             const reqApprovals = Math.max(1, Math.floor(num('REQUIRED_APPROVALS', 1)));
             const remindApproved = (process.env.REMIND_APPROVED || 'true').toLowerCase() === 'true';
+            const maxItems = Math.max(1, Math.floor(num('MAX_ITEMS', 20)));
             const ignoredLabels = new Set(list('IGNORED_LABELS'));
             const ignoredTerms = list('IGNORED_TERMS');
+
+            // GitHub ID(대소문자 무시) -> Discord snowflake ID. 형식이 틀린 값은 경고 후 무시
+            const userMap = {};
+            try {
+              const parsed = JSON.parse(process.env.DISCORD_USER_MAP || '{}');
+              if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                for (const [k, v] of Object.entries(parsed)) {
+                  const id = String(v).trim();
+                  if (/^\d{17,20}$/.test(id)) userMap[k.toLowerCase()] = id;
+                  else core.warning(`DISCORD_USER_MAP: ${k} 의 ID 형식 오류 (${id}) -> 무시`);
+                }
+              }
+            } catch {
+              core.warning('DISCORD_USER_MAP JSON 파싱 실패: 멘션 없이 진행');
+            }
+
+            // 멘션은 sink 에 ID 를 모았다가, 실제로 메시지에 포함된 줄의 ID 만 content 핑 대상으로 확정
+            const mention = (login, sink) => {
+              const id = userMap[login.toLowerCase()];
+              if (id) { sink.add(id); return `<@${id}>`; }
+              return `\`@${login}\``;
+            };
+            // Discord 마크다운 제어문자 이스케이프 (링크 텍스트 깨짐, 서식 주입 방지)
+            const esc = (s) => s.replace(/[\r\n]+/g, ' ').replace(/[\\`*_~|<>\[\]()]/g, '\\$&');
+            const clip = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+            const ago = (ms) => {
+              const h = Math.max(0, Math.floor(ms / HOUR));
+              return h >= 48 ? `${Math.floor(h / 24)}일` : `${h}시간`;
+            };
 
             const { owner, repo } = context.repo;
             const prs = await github.paginate(github.rest.pulls.list, {
@@ -134,11 +168,67 @@ jobs:
               return;
             }
 
-            const LABELS = { review: '리뷰 대기', changes: '변경 요청 반영 대기', merge: '승인 완료, 머지 대기', unassigned: '리뷰어 미지정' };
+            // [key, 섹션명, embed 색상, 줄 꼬리 포맷터]
+            const SECTIONS = [
+              ['review', '리뷰 대기', 0xF2C744, (r, s) =>
+                `리뷰어: ${[...r.pendingUsers.map((u) => mention(u, s)), ...r.pendingTeams.map((t) => `\`@${t}\``)].join(' ')}`],
+              ['changes', '변경 요청 반영 대기', 0xE67E22, (r, s) =>
+                `작성자: ${mention(r.author, s)} | 요청: ${r.requesters.map((u) => `\`@${u}\``).join(' ')}`],
+              ['merge', '승인 완료, 머지 대기', 0x2ECC71, (r, s) =>
+                `작성자: ${mention(r.author, s)} | 승인 ${r.approvals}`],
+              ['unassigned', '리뷰어 미지정', 0x95A5A6, (r, s) =>
+                `작성자: ${mention(r.author, s)} | 리뷰어를 지정해주세요`],
+            ];
+
+            // Discord 제한: description 4096 / embed 총합 6000 -> 안내문 여유분 두고 보수적으로 계산
+            const DESC_LIMIT = 4096 - 32;
+            const TOTAL_LIMIT = 6000 - 200;
+            const footer = `${owner}/${repo}`;
+            const timestamp = new Date(now).toISOString();
+            const mentioned = new Set();
+            const embeds = [];
+            let totalChars = 0;
+            let budget = maxItems;
+
+            for (const [key, label, color, fmt] of SECTIONS) {
+              const items = buckets[key];
+              if (!items.length) continue;
+              const title = `[${label}] ${items.length}건`;
+              const lines = [];
+              let descLen = 0;
+              let shown = 0;
+              for (const r of items) {
+                if (budget <= 0) break;
+                const sink = new Set();
+                const line = `• [#${r.number} ${esc(clip(r.title, 80))}](${r.url}) | ${ago(now - r.createdAt)} 경과 | ${fmt(r, sink)}`;
+                const nextDesc = descLen + line.length + 1;
+                if (nextDesc > DESC_LIMIT || totalChars + title.length + footer.length + nextDesc > TOTAL_LIMIT) break;
+                lines.push(line);
+                descLen = nextDesc;
+                shown += 1;
+                budget -= 1;
+                sink.forEach((id) => mentioned.add(id)); // 실제 포함된 줄의 멘션만 핑
+              }
+              if (shown < items.length) lines.push(`외 ${items.length - shown}건`);
+              const description = lines.join('\n');
+              totalChars += title.length + footer.length + description.length;
+              embeds.push({ title, description, color, footer: { text: footer }, timestamp });
+            }
+
+            // embed 내부 멘션은 알림이 안 가므로 content 에 핑 대상을 모음 (2000자 / 100명 제한)
+            const ids = [...mentioned].slice(0, 80);
+            const content = [`**${heading}**`, ids.map((id) => `<@${id}>`).join(' ')].filter(Boolean).join('\n');
+
+            const payload = {
+              username: process.env.BOT_NAME || 'PR Reminder',
+              content,
+              embeds,
+              allowed_mentions: { parse: [], users: ids }, // 매핑된 유저만 핑 허용
+            };
+
+            core.setOutput('payload', JSON.stringify(payload));
             await core.summary
               .addHeading('PR Review Remind')
               .addRaw(`${heading}\n`)
-              .addList(Object.entries(buckets)
-                .filter(([, b]) => b.length)
-                .map(([k, b]) => `${LABELS[k]}: ${b.map((r) => `#${r.number}`).join(', ')}`))
+              .addCodeBlock(JSON.stringify(payload, null, 2), 'json')
               .write();

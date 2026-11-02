@@ -11,6 +11,10 @@ on:
         description: 'Discord 전송 없이 Job Summary 에만 출력'
         type: boolean
         default: true
+  # 스터디 규칙(auto/* -> test 머지 후 동작 확인)용: test 에 머지되면 즉시 1회 실행
+  push:
+    branches: [test]
+    paths: ['.github/workflows/pr-review-remind.yml']
 
 # 수동 실행과 스케줄이 겹쳐도 중복 알림이 나가지 않도록 직렬화
 concurrency:

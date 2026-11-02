@@ -35,7 +35,27 @@ jobs:
   remind:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # 수동 실행은 dry_run 을 끈 경우에만, 그 외(schedule/push)는 항상 실제 전송
+    # (non-dispatch 이벤트에서 inputs.dry_run 은 null 이라 이벤트 종류로 명시 분기)
+    env:
+      SHOULD_SEND: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run == false }}
     steps:
+      - name: Validate secrets
+        if: env.SHOULD_SEND == 'true'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          # 무인 실행에서 시크릿 누락/오타로 인한 silent failure 방지
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "::error::DISCORD_WEBHOOK secret is not set"
+            exit 1
+          fi
+          # Slack 호환 엔드포인트(/slack)나 잘못된 URL 이면 embed payload 가 거부됨
+          if ! echo "$DISCORD_WEBHOOK" | grep -Eq '^https://((ptb|canary)\.)?discord(app)?\.com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+/?$'; then
+            echo "::error::DISCORD_WEBHOOK 형식이 올바르지 않음 (https://discord.com/api/webhooks/<id>/<token>, 끝에 /slack 금지)"
+            exit 1
+          fi
+
       - name: Collect PRs and build Discord payload
         id: collect
         uses: actions/github-script@v7
@@ -232,3 +252,45 @@ jobs:
               .addRaw(`${heading}\n`)
               .addCodeBlock(JSON.stringify(payload, null, 2), 'json')
               .write();
+
+      - name: Notify Discord
+        if: env.SHOULD_SEND == 'true' && steps.collect.outputs.has_targets == 'true'
+        uses: actions/github-script@v7
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          PAYLOAD: ${{ steps.collect.outputs.payload }}
+        with:
+          script: |
+            const base = process.env.DISCORD_WEBHOOK.trim().replace(/\/+$/, '');
+            // wait=true: 실패 시 Discord 가 에러 본문을 반환해서 원인 파악 가능
+            const url = `${base}?wait=true`;
+            const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+            const MAX_ATTEMPTS = 3;
+
+            for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+              const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: process.env.PAYLOAD,
+              });
+              if (res.ok) {
+                core.info(`Discord 전송 완료 (HTTP ${res.status})`);
+                return;
+              }
+              const body = await res.text();
+              const last = attempt === MAX_ATTEMPTS;
+              // 429: retry_after(초) 만큼 대기, 5xx: 지수 백오프. 4xx(payload 오류)는 재시도 무의미
+              if (!last && res.status === 429) {
+                let wait = 1;
+                try { wait = Number(JSON.parse(body).retry_after) || 1; } catch {}
+                core.warning(`Rate limited -> ${wait}s 후 재시도 (${attempt}/${MAX_ATTEMPTS})`);
+                await sleep(Math.min(wait, 30) * 1000 + 250);
+                continue;
+              }
+              if (!last && res.status >= 500) {
+                await sleep(2000 * attempt);
+                continue;
+              }
+              core.setFailed(`Discord 전송 실패 (HTTP ${res.status}): ${body.slice(0, 500)}`);
+              return;
+            }

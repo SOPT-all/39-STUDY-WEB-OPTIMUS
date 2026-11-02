@@ -24,6 +24,8 @@ permissions:
 env:
   MIN_AGE_HOURS: '12'                 # 생성 후 N시간 미만 PR 제외
   MIN_STALE_HOURS: '6'                # 마지막 활동 후 N시간 미만 PR 제외 (방금 업데이트된 PR 재촉 방지)
+  REQUIRED_APPROVALS: '1'             # 승인 기준 수 (최소 1)
+  REMIND_APPROVED: 'true'             # 승인 완료 PR 머지 독촉 여부
   IGNORED_LABELS: 'WIP,no-remind,on-hold'
   IGNORED_TERMS: '[WIP],DO NOT MERGE' # 제목에 포함 시 제외 (대소문자 무시)
 
@@ -51,6 +53,8 @@ jobs:
 
             const minAge = num('MIN_AGE_HOURS', 0) * HOUR;
             const minStale = num('MIN_STALE_HOURS', 0) * HOUR;
+            const reqApprovals = Math.max(1, Math.floor(num('REQUIRED_APPROVALS', 1)));
+            const remindApproved = (process.env.REMIND_APPROVED || 'true').toLowerCase() === 'true';
             const ignoredLabels = new Set(list('IGNORED_LABELS'));
             const ignoredTerms = list('IGNORED_TERMS');
 
@@ -70,10 +74,71 @@ jobs:
               return true;
             });
 
-            core.info(`열린 PR ${prs.length}건 중 리마인드 후보 ${candidates.length}건`);
-            core.setOutput('count', String(candidates.length));
+            // 2차 필터: 리뷰 상태 조회 (PR 단위 병렬)
+            const classified = await Promise.all(candidates.map(async (pr) => {
+              const reviews = await github.paginate(github.rest.pulls.listReviews, {
+                owner, repo, pull_number: pr.number, per_page: 100,
+              });
+
+              // 리뷰어별 최신 "결정" 상태만 유지 (시간순 정렬된 응답)
+              // COMMENTED/PENDING 은 이전 결정을 덮어쓰지 않음, DISMISSED 는 결정 무효화
+              const latest = new Map();
+              for (const r of reviews) {
+                const login = r.user?.login;
+                if (!login || login === pr.user.login) continue;
+                if (r.state === 'APPROVED' || r.state === 'CHANGES_REQUESTED') latest.set(login, r.state);
+                else if (r.state === 'DISMISSED') latest.delete(login);
+              }
+
+              const approvals = [...latest.values()].filter((s) => s === 'APPROVED').length;
+              const pendingUsers = (pr.requested_reviewers || []).map((u) => u.login);
+              const pendingTeams = (pr.requested_teams || []).map((t) => t.slug);
+              const pendingSet = new Set(pendingUsers);
+              // 재요청되지 않은 변경요청 = 작성자가 아직 반영해야 하는 상태
+              const unresolved = [...latest]
+                .filter(([u, s]) => s === 'CHANGES_REQUESTED' && !pendingSet.has(u))
+                .map(([u]) => u);
+
+              const base = {
+                number: pr.number,
+                title: pr.title,
+                url: pr.html_url,
+                author: pr.user.login,
+                createdAt: Date.parse(pr.created_at),
+              };
+
+              // 우선순위: 리뷰 대기 > 변경 요청 > 승인 완료 > 미지정
+              if (pendingUsers.length || pendingTeams.length) {
+                return { ...base, type: 'review', pendingUsers, pendingTeams };
+              }
+              if (unresolved.length) return { ...base, type: 'changes', requesters: unresolved };
+              if (approvals >= reqApprovals) return remindApproved ? { ...base, type: 'merge', approvals } : null;
+              return { ...base, type: 'unassigned' };
+            }));
+
+            const buckets = { review: [], changes: [], merge: [], unassigned: [] };
+            for (const item of classified) if (item) buckets[item.type].push(item);
+            // 오래된 PR 이 먼저 보이도록 정렬
+            for (const b of Object.values(buckets)) b.sort((a, z) => a.createdAt - z.createdAt);
+            const total = Object.values(buckets).reduce((n, b) => n + b.length, 0);
+
+            const kst = new Date(now + 9 * HOUR);
+            const heading = `PR 리뷰 리마인드 | ${kst.toISOString().slice(0, 10)} (${'일월화수목금토'[kst.getUTCDay()]}) | ${total}건`;
+
+            core.setOutput('count', String(total));
+            core.setOutput('has_targets', String(total > 0));
+
+            if (!total) {
+              core.info('리마인드 대상 PR 없음 -> 알림 생략');
+              await core.summary.addHeading('PR Review Remind').addRaw('리마인드 대상 PR 없음').write();
+              return;
+            }
+
+            const LABELS = { review: '리뷰 대기', changes: '변경 요청 반영 대기', merge: '승인 완료, 머지 대기', unassigned: '리뷰어 미지정' };
             await core.summary
               .addHeading('PR Review Remind')
-              .addRaw(`열린 PR ${prs.length}건 / 후보 ${candidates.length}건\n`)
-              .addList(candidates.map((pr) => `#${pr.number} ${pr.title}`))
+              .addRaw(`${heading}\n`)
+              .addList(Object.entries(buckets)
+                .filter(([, b]) => b.length)
+                .map(([k, b]) => `${LABELS[k]}: ${b.map((r) => `#${r.number}`).join(', ')}`))
               .write();

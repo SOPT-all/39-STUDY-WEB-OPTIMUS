@@ -143,29 +143,55 @@ if [ -z "$META" ]; then
     echo "Draft PR; waiting for ready_for_review."; exit 0
   fi
 
-  RESP=$(discord POST "/channels/$DISCORD_CHANNEL_ID/messages" "$(message_json "$(build_message "")")")
-  MESSAGE_ID=$(jq -r '.id // empty' <<< "$RESP")
-  [ -n "$MESSAGE_ID" ] || { echo "Discord post failed: $RESP"; exit 1; }
-
-  RESP=$(discord POST "/channels/$DISCORD_CHANNEL_ID/messages/$MESSAGE_ID/threads" \
-    "$(jq -n --arg n "$(thread_name)" '{name: $n, auto_archive_duration: 10080}')")
-  THREAD_ID=$(jq -r '.id // empty' <<< "$RESP")
-  [ -n "$THREAD_ID" ] || { echo "Discord thread create failed: $RESP"; exit 1; }
-
   INITIAL_REVIEWERS=$(event '[.pull_request.requested_reviewers[]?.login]' | jq -c .)
 
-  # 작성자 + 처음 지정된 리뷰어만 스레드 멤버로 추가해 사이드바에 노출(실패해도 무시).
-  # 전원을 추가하면 "스레드에 추가했어요" 시스템 메시지가 인원수만큼 쌓인다.
-  # 이후 지정되는 리뷰어는 스레드 멘션으로 자동 참여된다.
-  jq -r --arg a "$AUTHOR" --argjson r "$INITIAL_REVIEWERS" \
-    '([$a] + $r | unique)[] as $l | .[$l] // empty' <<< "$DISCORD_USER_MAP" | while read -r uid; do
-    discord PUT "/channels/$THREAD_ID/thread-members/$uid" > /dev/null || true
-  done
+  # 이전 실행이 Discord 생성 후 중간에 실패했다면(댓글 저장 실패 등) 채널에 카드가 남아 있다.
+  # 새로 만들기 전에 최근 100개 메시지에서 이 PR 링크를 가진 봇 메시지를 찾아 재사용해, 재실행해도 중복이 생기지 않게 한다.
+  BOT_ID=$(discord GET "/users/@me" | jq -r '.id // empty')
+  MESSAGE_ID=$(discord GET "/channels/$DISCORD_CHANNEL_ID/messages?limit=100" \
+    | jq -r --arg b "$BOT_ID" --arg u "]($PR_URL)" \
+      '(if type == "array" then . else [] end) | [.[] | select(.author.id == $b and (.content | contains($u)))][0].id // empty')
 
+  if [ -n "$MESSAGE_ID" ]; then
+    echo "Reusing Discord message $MESSAGE_ID left by a previous run."
+    discord PATCH "/channels/$DISCORD_CHANNEL_ID/messages/$MESSAGE_ID" "$(message_json "$(build_message "")")" > /dev/null
+  else
+    RESP=$(discord POST "/channels/$DISCORD_CHANNEL_ID/messages" "$(message_json "$(build_message "")")")
+    MESSAGE_ID=$(jq -r '.id // empty' <<< "$RESP")
+    [ -n "$MESSAGE_ID" ] || { echo "Discord post failed: $RESP"; exit 1; }
+  fi
+
+  # 메시지에서 만든 스레드는 id 가 메시지 id 와 같다. 이미 있으면 재사용하고, 없을 때만 만든다.
+  THREAD_ID=$(discord GET "/channels/$MESSAGE_ID" | jq -r '.id // empty')
+  if [ -z "$THREAD_ID" ]; then
+    RESP=$(discord POST "/channels/$DISCORD_CHANNEL_ID/messages/$MESSAGE_ID/threads" \
+      "$(jq -n --arg n "$(thread_name)" '{name: $n, auto_archive_duration: 10080}')")
+    THREAD_ID=$(jq -r '.id // empty' <<< "$RESP")
+    [ -n "$THREAD_ID" ] || { echo "Discord thread create failed: $RESP"; exit 1; }
+
+    # 작성자 + 처음 지정된 리뷰어만 스레드 멤버로 추가해 사이드바에 노출(실패해도 무시).
+    # 전원을 추가하면 "스레드에 추가했어요" 시스템 메시지가 인원수만큼 쌓인다.
+    # 이후 지정되는 리뷰어는 스레드 멘션으로 자동 참여된다.
+    jq -r --arg a "$AUTHOR" --argjson r "$INITIAL_REVIEWERS" \
+      '([$a] + $r | unique)[] as $l | .[$l] // empty' <<< "$DISCORD_USER_MAP" | while read -r uid; do
+      discord PUT "/channels/$THREAD_ID/thread-members/$uid" > /dev/null || true
+    done
+  fi
+
+  # 메타데이터 댓글 저장 — 일시적인 오류에 대비해 최대 3번 시도한다.
+  # 끝내 실패해도 재실행하면 위에서 기존 카드·스레드를 찾아 이 단계부터 이어간다.
   META=$(jq -nc --arg c "$DISCORD_CHANNEL_ID" --arg m "$MESSAGE_ID" --arg t "$THREAD_ID" \
     --argjson r "$INITIAL_REVIEWERS" '{channel_id: $c, message_id: $m, thread_id: $t, initial_reviewers: $r}')
-  gh api "repos/$REPO/issues/$PR_NUMBER/comments" -f body="$(printf '%s\n<!-- discord-pr-bot: %s -->' \
-    '🤖 Discord 알림 연동용 댓글입니다. 수정·삭제하면 PR 과 Discord 스레드 연동이 끊겨요.' "$META")" > /dev/null
+  BODY=$(printf '%s\n<!-- discord-pr-bot: %s -->' \
+    '🤖 Discord 알림 연동용 댓글입니다. 수정·삭제하면 PR 과 Discord 스레드 연동이 끊겨요.' "$META")
+  for attempt in 1 2 3; do
+    gh api "repos/$REPO/issues/$PR_NUMBER/comments" -f body="$BODY" > /dev/null && break
+    if [ "$attempt" -eq 3 ]; then
+      echo "Saving metadata comment failed. Re-run this job to resume without duplicating the Discord thread."
+      exit 1
+    fi
+    sleep $((attempt * 2))
+  done
 
   echo "Posted Discord message $MESSAGE_ID with thread $THREAD_ID."
   exit 0

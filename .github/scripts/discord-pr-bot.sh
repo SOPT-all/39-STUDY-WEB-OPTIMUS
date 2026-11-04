@@ -189,8 +189,14 @@ REPLY=""
 case "$ACTION" in
   review_requested)
     REVIEWER=$(event '.requested_reviewer.login // empty')
-    # PR 을 열 때 이미 지정된 리뷰어는 부모 메시지에 표시되므로 답글 생략
-    if jq -e --arg r "$REVIEWER" '.initial_reviewers | any(.[]; . == $r) | not' <<< "$META" > /dev/null; then
+    # 이미 리뷰를 남긴 사람에게 다시 요청했다면 리뷰 반영 후 재요청이다
+    REVIEW_COUNT=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews" \
+      | jq -s --arg r "$REVIEWER" '[.[][] | select(.user.login == $r)] | length')
+    if [ "$REVIEW_COUNT" -gt 0 ]; then
+      REPLY="🔁 리뷰 재요청: $(mention "$REVIEWER")"
+    # PR 을 열 때 지정된 리뷰어의 첫 요청은 GitHub 가 opened 와 함께 보내는 이벤트라,
+    # 부모 메시지에 이미 표시돼 있으므로 답글을 생략한다
+    elif jq -e --arg r "$REVIEWER" '.initial_reviewers | any(.[]; . == $r) | not' <<< "$META" > /dev/null; then
       REPLY="🙋 리뷰 요청: $(mention "${REVIEWER:-unknown}")"
     fi
     ;;

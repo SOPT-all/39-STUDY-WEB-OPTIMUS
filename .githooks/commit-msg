@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# 커밋 메시지 컨벤션 검사 — 형식: {type}: {작업 내용}
+# - 로컬: 클론 후 한 번 `git config core.hooksPath .githooks` 를 실행하면 커밋할 때마다 검사한다.
+# - CI: .github/workflows/commit-convention.yml 이 PR 의 커밋마다 이 스크립트를 실행한다.
+# 규칙을 바꿀 땐 이 파일만 고치면 로컬과 CI 에 함께 반영된다.
+
+TYPES="feat|fix|refactor|docs|chore"
+
+# 주석(#)과 빈 줄을 뺀 첫 줄을 헤더로 본다
+HEADER=$(grep -v '^#' "$1" | sed '/^[[:space:]]*$/d' | head -n 1)
+
+# git 이 만들어주는 메시지는 통과
+case "$HEADER" in
+  "Merge "* | "Revert "* | "fixup! "* | "squash! "*) exit 0 ;;
+esac
+
+# type, 선택적 (scope), 선택적 ! (breaking change), 콜론 + 공백 + 내용
+if [[ "$HEADER" =~ ^($TYPES)(\([^\)]+\))?!?:\ [^[:space:]] ]]; then
+  exit 0
+fi
+
+cat >&2 <<EOF
+❌ 커밋 메시지가 컨벤션에 맞지 않아요.
+
+  입력: $HEADER
+
+  형식: {type}: {작업 내용}
+  type: ${TYPES//|/, }
+  예시: feat: PR 생성 시 리뷰어 자동 할당 워크플로우 추가
+EOF
+exit 1

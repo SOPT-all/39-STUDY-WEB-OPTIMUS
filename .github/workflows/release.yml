@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  # main 에 쌓인 커밋으로 릴리즈 PR(버전 + CHANGELOG)을 만들고, 그 PR 이 머지되면 태그 + GitHub Release 를 발행한다.
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write # 릴리즈 PR 라벨
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      html_url: ${{ steps.release.outputs.html_url }}
+    steps:
+      - uses: googleapis/release-please-action@v5
+        id: release
+        with:
+          # SOPT-all 조직이 GITHUB_TOKEN 의 PR 생성을 막고 있어 개인 토큰(PAT)으로 릴리즈 PR 을 만든다.
+          # PAT 로 만든 PR 은 다른 워크플로(PR 디스코드 봇, 컨벤션 검사)도 정상적으로 트리거한다.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # GITHUB_TOKEN 으로 만든 Release 는 다른 워크플로(release: published)를 트리거하지 않으므로 같은 워크플로에서 이어서 알린다.
+  notify-discord:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Notify Discord
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_RELEASE_CHANNEL_ID }}
+          TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
+        run: bash .github/scripts/discord-release-notify.sh

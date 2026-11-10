@@ -16,10 +16,10 @@ on:
     branches: [test]
     paths: ['.github/workflows/pr-review-remind.yml']
 
-# 수동 실행과 스케줄이 겹쳐도 중복 알림이 나가지 않도록 직렬화
+# 수동 실행과 스케줄이 겹치면 순서대로 하나씩 실행 (진행 중인 스케줄 실행이 취소되지 않도록)
 concurrency:
   group: pr-review-remind
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -141,9 +141,11 @@ jobs:
               // 리뷰어별 최신 "결정" 상태만 유지 (시간순 정렬된 응답)
               // COMMENTED/PENDING 은 이전 결정을 덮어쓰지 않음, DISMISSED 는 결정 무효화
               const latest = new Map();
+              const reviewers = new Set(); // COMMENTED 포함, 리뷰를 한 번이라도 남긴 사람
               for (const r of reviews) {
                 const login = r.user?.login;
                 if (!login || login === pr.user.login) continue;
+                if (r.state !== 'PENDING') reviewers.add(login);
                 if (r.state === 'APPROVED' || r.state === 'CHANGES_REQUESTED') latest.set(login, r.state);
                 else if (r.state === 'DISMISSED') latest.delete(login);
               }
@@ -165,16 +167,18 @@ jobs:
                 createdAt: Date.parse(pr.created_at),
               };
 
-              // 우선순위: 리뷰 대기 > 변경 요청 > 승인 완료 > 미지정
+              // 우선순위: 리뷰 대기 > 변경 요청 > 승인 완료 > 승인 부족 > 미지정
               if (pendingUsers.length || pendingTeams.length) {
                 return { ...base, type: 'review', pendingUsers, pendingTeams };
               }
               if (unresolved.length) return { ...base, type: 'changes', requesters: unresolved };
               if (approvals >= reqApprovals) return remindApproved ? { ...base, type: 'merge', approvals } : null;
+              // Comment 리뷰만 남기면 requested_reviewers 에서 빠지므로, 리뷰 기록이 있으면 미지정과 구분
+              if (reviewers.size) return { ...base, type: 'approval', approvals, reviewers: [...reviewers] };
               return { ...base, type: 'unassigned' };
             }));
 
-            const buckets = { review: [], changes: [], merge: [], unassigned: [] };
+            const buckets = { review: [], changes: [], merge: [], approval: [], unassigned: [] };
             for (const item of classified) if (item) buckets[item.type].push(item);
             // 오래된 PR 이 먼저 보이도록 정렬
             for (const b of Object.values(buckets)) b.sort((a, z) => a.createdAt - z.createdAt);
@@ -200,6 +204,8 @@ jobs:
                 `작성자: ${mention(r.author, s)} | 요청: ${r.requesters.map((u) => `\`@${u}\``).join(' ')}`],
               ['merge', '승인 완료, 머지 대기', 0x2ECC71, (r, s) =>
                 `작성자: ${mention(r.author, s)} | 승인 ${r.approvals}`],
+              ['approval', '승인 부족', 0x3498DB, (r, s) =>
+                `작성자: ${mention(r.author, s)} | 승인 ${r.approvals}/${reqApprovals} | 리뷰: ${r.reviewers.map((u) => `\`@${u}\``).join(' ')} | 리뷰를 다시 요청해주세요`],
               ['unassigned', '리뷰어 미지정', 0x95A5A6, (r, s) =>
                 `작성자: ${mention(r.author, s)} | 리뷰어를 지정해주세요`],
             ];
@@ -270,6 +276,8 @@ jobs:
             const url = `${base}?wait=true`;
             const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
             const MAX_ATTEMPTS = 3;
+            // job timeout(5분) 안에서 기다릴 수 있는 최대 시간
+            const MAX_WAIT_SEC = 120;
 
             for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
               const res = await fetch(url, {
@@ -285,10 +293,15 @@ jobs:
               const last = attempt === MAX_ATTEMPTS;
               // 429: retry_after(초) 만큼 대기, 5xx: 지수 백오프. 4xx(payload 오류)는 재시도 무의미
               if (!last && res.status === 429) {
-                let wait = 1;
-                try { wait = Number(JSON.parse(body).retry_after) || 1; } catch {}
+                let wait = Number(res.headers.get('retry-after')) || 1;
+                try { wait = Number(JSON.parse(body).retry_after) || wait; } catch {}
+                // 안내받은 시간보다 일찍 재시도하지 않음. 실행 시간 안에 못 기다리면 사유를 남기고 종료
+                if (wait > MAX_WAIT_SEC) {
+                  core.setFailed(`Rate limited: retry_after ${wait}s 가 대기 한도(${MAX_WAIT_SEC}s)를 넘어 전송 중단`);
+                  return;
+                }
                 core.warning(`Rate limited -> ${wait}s 후 재시도 (${attempt}/${MAX_ATTEMPTS})`);
-                await sleep(Math.min(wait, 30) * 1000 + 250);
+                await sleep(wait * 1000 + 250);
                 continue;
               }
               if (!last && res.status >= 500) {
@@ -309,7 +322,7 @@ jobs:
             const hook = (process.env.DISCORD_WEBHOOK || '').trim().replace(/\/+$/, '');
             if (!hook) return; // 시크릿 자체가 없으면 보낼 곳이 없음
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            await fetch(hook, {
+            const res = await fetch(hook, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -317,4 +330,14 @@ jobs:
                 embeds: [{ title: 'PR 리마인드 워크플로 실패', url: runUrl, description: runUrl, color: 0xE74C3C }],
                 allowed_mentions: { parse: [] },
               }),
-            }).catch((e) => core.warning(`실패 알림 전송 불가: ${e.message}`));
+            }).catch((e) => {
+              core.warning(`실패 알림 전송 불가 (네트워크 오류): ${e.message}`);
+              return null;
+            });
+            // fetch 는 404/429 같은 응답에서 reject 되지 않으므로 응답 코드로 전송 여부를 기록
+            if (res && !res.ok) {
+              const body = await res.text().catch(() => '');
+              core.warning(`실패 알림 전송 실패 (HTTP ${res.status}): ${body.slice(0, 300)}`);
+            } else if (res) {
+              core.info(`실패 알림 전송 완료 (HTTP ${res.status})`);
+            }

@@ -169,7 +169,8 @@ jobs:
 
               // 우선순위: 리뷰 대기 > 변경 요청 > 승인 완료 > 승인 부족 > 미지정
               if (pendingUsers.length || pendingTeams.length) {
-                return { ...base, type: 'review', pendingUsers, pendingTeams };
+                // 남은 리뷰를 먼저 모으되, 다른 리뷰어의 변경 요청이 있으면 작성자도 함께 알림
+                return { ...base, type: 'review', pendingUsers, pendingTeams, requesters: unresolved };
               }
               if (unresolved.length) return { ...base, type: 'changes', requesters: unresolved };
               if (approvals >= reqApprovals) return remindApproved ? { ...base, type: 'merge', approvals } : null;
@@ -199,7 +200,10 @@ jobs:
             // [key, 섹션명, embed 색상, 줄 꼬리 포맷터]
             const SECTIONS = [
               ['review', '리뷰 대기', 0xF2C744, (r, s) =>
-                `리뷰어: ${[...r.pendingUsers.map((u) => mention(u, s)), ...r.pendingTeams.map((t) => `\`@${t}\``)].join(' ')}`],
+                `리뷰어: ${[...r.pendingUsers.map((u) => mention(u, s)), ...r.pendingTeams.map((t) => `\`@${t}\``)].join(' ')}`
+                + (r.requesters.length
+                  ? ` | 변경 요청: ${r.requesters.map((u) => `\`@${u}\``).join(' ')} (작성자: ${mention(r.author, s)})`
+                  : '')],
               ['changes', '변경 요청 반영 대기', 0xE67E22, (r, s) =>
                 `작성자: ${mention(r.author, s)} | 요청: ${r.requesters.map((u) => `\`@${u}\``).join(' ')}`],
               ['merge', '승인 완료, 머지 대기', 0x2ECC71, (r, s) =>

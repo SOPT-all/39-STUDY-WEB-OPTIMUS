@@ -416,25 +416,27 @@ echo <span class="s">"❌ 컨벤션에 맞지 않아요"</span>; exit 1
   </div>
 </section>
 
-<!-- 14. 트러블슈팅 2 -->
+<!-- 14. 함께 쓸 때 -->
 <section class="slide">
-  <div class="eyebrow">13 · 트러블슈팅 ②</div>
-  <h2>공용 <code style="font-size:.85em">test</code> 브랜치에서 생긴 일</h2>
+  <div class="eyebrow">13 · 함께 쓸 때 주의할 점</div>
+  <h2>릴리즈 PR 은 <span class="hl">오래 열려 있는</span> PR 이에요</h2>
   <div class="row" style="align-items:flex-start">
-    <pre><span class="c"># Week 1 Main PR(#2)이 아직 리뷰 중인데</span>
-main  ── 처음 상태
-test  ── Week 1 ── <span class="k">Week 3 (#4 머지)</span>
+    <pre><span class="c"># main 머지마다 같은 릴리즈 PR 에 쌓임</span>
+#13 머지  → <span class="g">● chore: release 1.0.0</span> 생성
+#14 머지  → <span class="g">● chore: release 1.0.0</span> 내용 추가
+릴리즈 PR 머지 → 🏷️ v1.0.0
 
-<span class="c"># #2 (test → main) 에 Week 3 까지 섞여버림 😱</span>
+<span class="c"># 그 사이 Week 2 리마인드 봇은…</span>
+<span class="k">[리뷰어 미지정]</span> chore: release 1.0.0
+  | 3일 경과 | 리뷰어를 지정해주세요 😵
 
-<span class="c"># 해결: test 를 #4 머지 직전으로 되돌리고</span>
-git push --force-with-lease=test:bb5e83c \
-  origin 30abaaf:test
-<span class="c"># Week 3 는 #6 으로 다시 올려서 #2 머지 후 반영</span></pre>
+<span class="c"># 해결: release-please 가 붙이는 라벨로 제외</span>
+IGNORED_LABELS: <span class="s">'WIP,no-remind,on-hold,autorelease: pending'</span></pre>
     <ul class="points">
-      <li><code>test</code> 를 모두가 같이 쓰다 보니, <strong>앞 주차 Main PR 이 머지되기 전에</strong> 다음 작업이 들어가면 섞여요.</li>
-      <li>revert 로 되돌리면 나중에 릴리즈 노트에 <strong>같은 항목이 두 번</strong> 찍혀서, 히스토리를 되돌리는 쪽을 택했어요.</li>
-      <li>교훈: <strong>Main PR 머지 → 다음 주차 test 머지</strong> 순서를 지키기</li>
+      <li>릴리즈 PR 은 머지 전까지 <strong>계속 열려 있고</strong>, main 머지마다 <strong>같은 PR 이 갱신</strong>돼요. 열린 릴리즈 PR 은 항상 최대 하나예요.</li>
+      <li>리뷰어도 승인도 없는 PR 이라 Week 2 <strong>리뷰 리마인드 봇</strong>이 평일마다 "리뷰어 미지정"으로 알릴 수 있어요.</li>
+      <li>release-please 는 릴리즈 PR 에 <code>autorelease: pending</code> 라벨을 자동으로 붙여서, 리마인드 <strong>제외 라벨에 추가</strong>하면 해결돼요.</li>
+      <li>자동화끼리도 <strong>서로 어떻게 맞물리는지</strong> 같이 봐야 해요.</li>
     </ul>
   </div>
 </section>

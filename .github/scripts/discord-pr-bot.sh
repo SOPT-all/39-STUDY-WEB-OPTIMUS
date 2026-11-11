@@ -56,11 +56,18 @@ update_thread() {
 
 join_lines() { paste -sd ',' - | sed 's/,/, /g'; }
 
+# 리뷰어 목록: 개인은 멘션, 팀은 "👥 팀이름"(팀은 Discord 계정과 매핑할 수 없어 이름만 표시)
 reviewer_text() {
-  local logins out=""
+  local logins teams out=""
   logins=$(event '.pull_request.requested_reviewers[]?.login')
-  [ -z "$logins" ] && { echo "없음"; return; }
-  while IFS= read -r l; do out+="$(mention "$l")"$'\n'; done <<< "$logins"
+  teams=$(event '.pull_request.requested_teams[]?.name')
+  [ -z "$logins$teams" ] && { echo "없음"; return; }
+  if [ -n "$logins" ]; then
+    while IFS= read -r l; do out+="$(mention "$l")"$'\n'; done <<< "$logins"
+  fi
+  if [ -n "$teams" ]; then
+    while IFS= read -r t; do out+="👥 $t"$'\n'; done <<< "$teams"
+  fi
   printf '%s' "$out" | join_lines
 }
 
@@ -143,7 +150,8 @@ if [ -z "$META" ]; then
     echo "Draft PR; waiting for ready_for_review."; exit 0
   fi
 
-  INITIAL_REVIEWERS=$(event '[.pull_request.requested_reviewers[]?.login]' | jq -c .)
+  # 개인은 로그인, 팀은 "team:슬러그" 로 기록한다
+  INITIAL_REVIEWERS=$(event '[.pull_request.requested_reviewers[]?.login] + [.pull_request.requested_teams[]? | "team:" + .slug]' | jq -c .)
 
   # 이전 실행이 Discord 생성 후 중간에 실패했다면(댓글 저장 실패 등) 채널에 카드가 남아 있다.
   # 새로 만들기 전에 최근 100개 메시지에서 이 PR 링크를 가진 봇 메시지를 찾아 재사용해, 재실행해도 중복이 생기지 않게 한다.
@@ -215,20 +223,32 @@ REPLY=""
 case "$ACTION" in
   review_requested)
     REVIEWER=$(event '.requested_reviewer.login // empty')
-    # 이미 리뷰를 남긴 사람에게 다시 요청했다면 리뷰 반영 후 재요청이다
-    REVIEW_COUNT=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews" \
-      | jq -s --arg r "$REVIEWER" '[.[][] | select(.user.login == $r)] | length')
-    if [ "$REVIEW_COUNT" -gt 0 ]; then
-      REPLY="🔁 리뷰 재요청: $(mention "$REVIEWER")"
-    # PR 을 열 때 지정된 리뷰어의 첫 요청은 GitHub 가 opened 와 함께 보내는 이벤트라,
-    # 부모 메시지에 이미 표시돼 있으므로 답글을 생략한다
-    elif jq -e --arg r "$REVIEWER" '.initial_reviewers | any(.[]; . == $r) | not' <<< "$META" > /dev/null; then
-      REPLY="🙋 리뷰 요청: $(mention "${REVIEWER:-unknown}")"
+    TEAM_SLUG=$(event '.requested_team.slug // empty')
+    if [ -z "$REVIEWER" ] && [ -n "$TEAM_SLUG" ]; then
+      # 팀 단위 요청: requested_reviewer 대신 requested_team 이 온다. PR 을 열 때 지정된 팀은 생략
+      if jq -e --arg r "team:$TEAM_SLUG" '.initial_reviewers | any(.[]; . == $r) | not' <<< "$META" > /dev/null; then
+        REPLY="🙋 리뷰 요청: 👥 $(event '.requested_team.name') 팀"
+      fi
+    else
+      # 이미 리뷰를 남긴 사람에게 다시 요청했다면 리뷰 반영 후 재요청이다
+      REVIEW_COUNT=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews" \
+        | jq -s --arg r "$REVIEWER" '[.[][] | select(.user.login == $r)] | length')
+      if [ "$REVIEW_COUNT" -gt 0 ]; then
+        REPLY="🔁 리뷰 재요청: $(mention "$REVIEWER")"
+      # PR 을 열 때 지정된 리뷰어의 첫 요청은 GitHub 가 opened 와 함께 보내는 이벤트라,
+      # 부모 메시지에 이미 표시돼 있으므로 답글을 생략한다
+      elif jq -e --arg r "$REVIEWER" '.initial_reviewers | any(.[]; . == $r) | not' <<< "$META" > /dev/null; then
+        REPLY="🙋 리뷰 요청: $(mention "${REVIEWER:-unknown}")"
+      fi
     fi
     ;;
   review_request_removed)
     REVIEWER=$(event '.requested_reviewer.login // empty')
-    REPLY="➖ 리뷰 요청 해제: $(mention "${REVIEWER:-unknown}")"
+    if [ -z "$REVIEWER" ] && [ -n "$(event '.requested_team.slug // empty')" ]; then
+      REPLY="➖ 리뷰 요청 해제: 👥 $(event '.requested_team.name') 팀"
+    else
+      REPLY="➖ 리뷰 요청 해제: $(mention "${REVIEWER:-unknown}")"
+    fi
     ;;
   synchronize)
     SHA=$(event '.pull_request.head.sha')

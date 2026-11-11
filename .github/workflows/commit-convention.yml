@@ -11,22 +11,71 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # PR 코드를 체크아웃하는 검사 단계는 읽기 권한만 갖는다.
+  # 규칙 파일은 PR 이 아니라 base 브랜치 것을 실행해, 규칙을 바꾸는 PR 이 바뀐 규칙으로 자기 자신을 통과시키지 못하게 한다.
   check:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write # 결과 댓글 작성
+    outputs:
+      passed: ${{ steps.check.outputs.passed }}
+      body: ${{ steps.check.outputs.body }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Check commits and PR title
+      - name: Load rules from base branch
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          RULES="$RUNNER_TEMP/rules"
+          mkdir -p "$RULES"
+          for f in .githooks/commit-msg .github/scripts/check-convention.sh; do
+            if ! git show "$BASE_SHA:$f" > "$RULES/$(basename "$f")" 2> /dev/null; then
+              # 규칙 파일을 처음 추가하는 PR 은 base 에 파일이 없어 PR 의 것을 쓴다
+              echo "::warning::base 브랜치에 $f 이 없어 PR 의 규칙으로 검사해요."
+              cp "$f" "$RULES/$(basename "$f")"
+            fi
+          done
+          echo "RULES=$RULES" >> "$GITHUB_ENV"
+
+      - name: Check commits and PR title
+        id: check
+        env:
           PR_TITLE: ${{ github.event.pull_request.title }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: bash .github/scripts/check-convention.sh
+        run: bash "$RULES/check-convention.sh"
+
+      - name: Fail on violation
+        if: steps.check.outputs.passed != 'true'
+        run: exit 1
+
+  # 댓글 작성 단계는 PR 코드를 실행하지 않고, 검사 결과만 받아 댓글을 쓴다.
+  comment:
+    needs: check
+    if: always() && needs.check.outputs.body != ''
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Write result comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PASSED: ${{ needs.check.outputs.passed }}
+          BODY: ${{ needs.check.outputs.body }}
+        run: |
+          MARKER="<!-- commit-convention -->"
+          COMMENT_ID=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$MARKER\"))) | .id" | tail -n 1)
+
+          # 기존 결과 댓글이 있으면 수정, 없으면 실패했을 때만 새로 단다(통과만 했을 땐 조용히)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$COMMENT_ID" -f body="$BODY" > /dev/null
+          elif [ "$PASSED" != "true" ]; then
+            gh api "repos/$REPO/issues/$PR_NUMBER/comments" -f body="$BODY" > /dev/null
+          fi

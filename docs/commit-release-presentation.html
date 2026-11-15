@@ -399,9 +399,47 @@ echo <span class="s">"❌ 컨벤션에 맞지 않아요"</span>; exit 1
   <p class="note">* 예시 화면이에요. 실제 알림은 Week 3 가 main 에 머지된 뒤 첫 릴리즈에서 확인할 예정이에요.</p>
 </section>
 
+<!-- 12-1. squash merge -->
+<section class="slide">
+  <div class="eyebrow">12 · PART 2 릴리즈 자동화<span class="part p2">squash merge</span></div>
+  <h2>squash merge 를 써도 릴리즈 노트가 남아요</h2>
+  <div class="row" style="align-items:flex-start">
+    <div>
+      <table class="t" style="font-size:1rem">
+        <tr><th>머지 방식</th><th>main 에 남는 커밋</th><th>릴리즈 노트</th></tr>
+        <tr><td>Merge commit</td><td>개별 커밋</td><td>✅ 그대로</td></tr>
+        <tr><td>Rebase</td><td>개별 커밋</td><td>✅ 그대로</td></tr>
+        <tr><td>Squash (커밋 1개)</td><td>그 커밋 제목</td><td>✅ 그대로</td></tr>
+        <tr><td>Squash (커밋 여러 개)</td><td><strong>PR 제목</strong></td><td>❌ → ✅ override</td></tr>
+      </table>
+      <ul class="points" style="margin-top:1.4rem">
+        <li>여러 커밋을 squash 하면 <code>[Week 3][Test] …</code> 같은 <strong>PR 제목</strong>만 남아서 release-please 가 못 읽어요.</li>
+        <li>release-please 실행 전에 squash 인지 판별해서, PR 의 개별 커밋을 <code>BEGIN_COMMIT_OVERRIDE</code> 로 PR 본문에 남겨요.</li>
+        <li>merge · rebase 에는 붙이지 않아요. 붙이면 커밋마다 적용돼 <strong>항목이 중복</strong>돼요.</li>
+      </ul>
+    </div>
+    <pre style="font-size:.82rem"><span class="c"># main 에 남은 squash 커밋</span>
+[Week 3][Test] 커밋 컨벤션 &amp; 릴리즈 자동화 (#20)
+
+<span class="c"># release-please 파서 결과 (실제 실행)</span>
+<span class="k">override 없음</span> → []   <span class="c">← 릴리즈 노트에서 통째로 빠짐</span>
+
+<span class="c"># PR 본문에 자동으로 추가되는 블록</span>
+BEGIN_COMMIT_OVERRIDE
+<span class="g">feat: 커밋 컨벤션 검사 워크플로우 추가</span>
+
+<span class="g">fix: 릴리즈 PR 생성에 개인 토큰 사용</span>
+
+<span class="g">docs: 가이드 추가</span>
+END_COMMIT_OVERRIDE
+
+<span class="k">override 있음</span> → [feat, fix, docs] <span class="c">✅</span></pre>
+  </div>
+</section>
+
 <!-- 13. 트러블슈팅 1 -->
 <section class="slide">
-  <div class="eyebrow">12 · 트러블슈팅 ①</div>
+  <div class="eyebrow">13 · 트러블슈팅 ①</div>
   <h2>봇이 PR 을 못 만든다고요?</h2>
   <div class="row" style="align-items:flex-start">
     <div class="layers">
@@ -418,7 +456,7 @@ echo <span class="s">"❌ 컨벤션에 맞지 않아요"</span>; exit 1
 
 <!-- 14. 함께 쓸 때 -->
 <section class="slide">
-  <div class="eyebrow">13 · 함께 쓸 때 주의할 점</div>
+  <div class="eyebrow">14 · 함께 쓸 때 주의할 점</div>
   <h2>릴리즈 PR 은 <span class="hl">오래 열려 있는</span> PR 이에요</h2>
   <div class="row" style="align-items:flex-start">
     <pre><span class="c"># main 머지마다 같은 릴리즈 PR 에 쌓임</span>
@@ -443,7 +481,7 @@ IGNORED_LABELS: <span class="s">'WIP,no-remind,on-hold,autorelease: pending'</sp
 
 <!-- 15. 적용 -->
 <section class="slide">
-  <div class="eyebrow">14 · 우리 프로젝트에 적용하기</div>
+  <div class="eyebrow">15 · 우리 프로젝트에 적용하기</div>
   <h2>합세 · 앱잼에서 3단계면 끝</h2>
   <div style="display:flex;flex-direction:column;gap:1.5rem">
     <div class="step"><div class="n">1</div><div><h3>파일 복사</h3><p><code>.githooks/</code> · <code>.github/workflows/</code> · <code>.github/scripts/</code> · <code>release-please-config.json</code> · <code>.release-please-manifest.json</code></p></div></div>
@@ -455,7 +493,7 @@ IGNORED_LABELS: <span class="s">'WIP,no-remind,on-hold,autorelease: pending'</sp
 
 <!-- 16. 회고 -->
 <section class="slide">
-  <div class="eyebrow">15 · 회고</div>
+  <div class="eyebrow">16 · 회고</div>
   <h2>정리하며</h2>
   <div class="grid2">
     <div class="card"><h3>✅ 얻은 것</h3>

@@ -78,7 +78,7 @@ git config core.hooksPath .githooks
 
 1. 이번 push 로 들어온 커밋이 **1개이고 부모도 1개**면 squash merge 로 판단해요.
 2. 그 커밋 제목이 이미 컨벤션 형식이면 그대로 둬요.
-3. 아니면 머지된 PR 의 개별 커밋 중 컨벤션 형식인 제목을 모아 PR 본문에 `BEGIN_COMMIT_OVERRIDE` 블록으로 추가해요.
+3. 아니면 머지된 PR 의 개별 커밋 중 컨벤션 형식인 제목을 모아 PR 본문 맨 아래에 `BEGIN_COMMIT_OVERRIDE` 블록으로 추가해요. 사람이 쓴 본문을 해치지 않도록 HTML 주석 안에 넣어서 화면에는 보이지 않아요.
 4. release-please 는 이 블록을 커밋 메시지 대신 읽어서, 개별 커밋이 릴리즈 노트에 그대로 들어가요.
 
 > merge commit · rebase merge 에는 override 를 붙이지 않아요. release-please 가 PR 의 커밋마다 같은 블록을 적용해서 항목이 중복되기 때문이에요.

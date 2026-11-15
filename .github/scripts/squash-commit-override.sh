@@ -51,12 +51,15 @@ fi
 
 # release-please 는 빈 줄로 구분된 메시지를 각각의 항목으로 읽는다
 OVERRIDE=$(awk 'NR > 1 { print "" } { print }' <<< "$MESSAGES")
+# 사람이 쓴 본문을 해치지 않도록 HTML 주석 안에 넣어 화면에는 보이지 않게 한다.
+# release-please 는 본문 문자열에서 두 표시 사이만 잘라 읽으므로 주석 안에 있어도 그대로 읽힌다.
 NEW_BODY="$BODY
 
-<!-- squash merge 로 머지되어, 릴리즈 노트에 개별 커밋이 들어가도록 자동으로 추가된 블록이에요 -->
+<!-- squash merge 로 합쳐진 원래 커밋 목록 (release-please 릴리즈 노트용, 자동 추가)
 BEGIN_COMMIT_OVERRIDE
 $OVERRIDE
-END_COMMIT_OVERRIDE"
+END_COMMIT_OVERRIDE
+-->"
 
 gh api -X PATCH "repos/$REPO/pulls/$PR" -f body="$NEW_BODY" > /dev/null
 echo "#$PR 에 BEGIN_COMMIT_OVERRIDE 추가:"

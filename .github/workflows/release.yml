@@ -23,6 +23,18 @@ jobs:
       tag_name: ${{ steps.release.outputs.tag_name }}
       html_url: ${{ steps.release.outputs.html_url }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+
+      # squash merge 로 들어온 PR 이면 개별 커밋 메시지를 PR 본문에 남겨 release-please 가 읽게 한다
+      - name: Prepare squash merge release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+        run: bash .github/scripts/squash-commit-override.sh
+
       - uses: googleapis/release-please-action@v5
         id: release
         with:

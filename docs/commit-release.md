@@ -49,7 +49,7 @@ git config core.hooksPath .githooks
 [release-please](https://github.com/googleapis/release-please) 를 사용해요.
 
 1. `main` 에 커밋이 쌓이면 **릴리즈 PR** (`chore: release 1.1.0`) 을 자동으로 열고, 커밋이 추가될 때마다 갱신해요.
-2. 릴리즈 PR 에는 다음 버전, `CHANGELOG.md`, `version.txt` 변경이 들어 있어요.
+2. 릴리즈 PR 에는 `CHANGELOG.md` 와 다음 버전(`.release-please-manifest.json`) 변경이 들어 있어요.
 3. 릴리즈 PR 을 머지하면 태그(`v1.1.0`)와 GitHub Release 를 발행하고 디스코드로 알려요.
 
 | type | 버전 변화 | 릴리즈 노트 섹션 |
@@ -63,6 +63,28 @@ git config core.hooksPath .githooks
 
 첫 릴리즈는 `1.0.0` 이에요. (`release-please-config.json` 의 `initial-version`)
 
+#### squash merge 도 지원해요
+
+머지 방식에 따라 `main` 에 남는 커밋이 달라져요. release-please 는 `main` 의 커밋 메시지를 읽기 때문에, squash merge 는 따로 처리해요.
+
+| 머지 방식 | `main` 에 남는 커밋 | 릴리즈 노트 |
+| :-- | :-- | :-- |
+| Merge commit | 개별 커밋 + 머지 커밋 | 개별 커밋을 그대로 읽어요 |
+| Rebase merge | 개별 커밋 | 개별 커밋을 그대로 읽어요 |
+| Squash (PR 커밋 1개) | 그 커밋 제목 | 그대로 읽어요 |
+| Squash (PR 커밋 여러 개) | **PR 제목** (`[Week 3][Test] ...`) | 컨벤션 형식이 아니라 읽지 못해요 → 아래처럼 처리 |
+
+`release.yml` 은 release-please 를 실행하기 전에 `squash-commit-override.sh` 를 돌려요.
+
+1. 이번 push 로 들어온 커밋이 **1개이고 부모도 1개**면 squash merge 로 판단해요.
+2. 그 커밋 제목이 이미 컨벤션 형식이면 그대로 둬요.
+3. 아니면 머지된 PR 의 개별 커밋 중 컨벤션 형식인 제목을 모아 PR 본문 맨 아래에 `BEGIN_COMMIT_OVERRIDE` 블록으로 추가해요. 사람이 쓴 본문을 해치지 않도록 HTML 주석 안에 넣어서 화면에는 보이지 않아요.
+4. release-please 는 이 블록을 커밋 메시지 대신 읽어서, 개별 커밋이 릴리즈 노트에 그대로 들어가요.
+
+> merge commit · rebase merge 에는 override 를 붙이지 않아요. release-please 가 PR 의 커밋마다 같은 블록을 적용해서 항목이 중복되기 때문이에요.
+>
+> `test → main` 처럼 계속 유지되는 브랜치끼리는 squash 하지 않는 걸 추천해요. squash 하면 두 브랜치의 히스토리가 갈라져서, 다음 PR 에 이미 반영된 커밋이 다시 보여요.
+
 ---
 
 ### 📌 다른 레포에 적용하기
@@ -71,7 +93,7 @@ git config core.hooksPath .githooks
 
 - `.githooks/commit-msg`
 - `.github/workflows/commit-convention.yml`, `.github/scripts/check-convention.sh`
-- `.github/workflows/release.yml`, `.github/scripts/discord-release-notify.sh`
+- `.github/workflows/release.yml`, `.github/scripts/discord-release-notify.sh`, `.github/scripts/squash-commit-override.sh`
 - `release-please-config.json`, `.release-please-manifest.json`
 
 > Node 프로젝트라면 `release-please-config.json` 의 `release-type` 을 `node` 로 바꾸면 `package.json` 버전도 함께 올라가요.

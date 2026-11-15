@@ -151,6 +151,7 @@ B --> C[main]
 
 - `main` 에 머지되면 커밋 type 을 기준으로 릴리즈 PR(`chore: release x.y.z`)이 자동으로 생성돼요.
 - 릴리즈 PR 을 머지하면 태그, GitHub Release, `CHANGELOG.md` 가 만들어지고 디스코드로 알림이 가요.
+- merge commit · rebase · squash merge 모두 지원해요. 커밋 여러 개를 squash 하면 PR 의 개별 커밋 메시지로 릴리즈 노트를 만들어요.
 
 | type                        | 버전 변화                       |
 | :-------------------------- | :------------------------------ |

@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.1.0](https://github.com/SOPT-all/39-STUDY-WEB-OPTIMUS/compare/v1.0.0...v1.1.0) (2026-11-15)
+
+
+### ✨ 새로운 기능
+
+* squash merge 된 PR 의 개별 커밋을 릴리즈 노트에 반영 ([1f715f6](https://github.com/SOPT-all/39-STUDY-WEB-OPTIMUS/commit/1f715f6855fdd9cfeb73d295f4990301b2a567ee))
+
+
+### ♻️ 리팩토링
+
+* squash 커밋 목록 블록을 PR 본문에서 보이지 않게 주석으로 감싸기 ([eff24e0](https://github.com/SOPT-all/39-STUDY-WEB-OPTIMUS/commit/eff24e07d9785b26a443d436e726d3625fffa41a))
+
+
+### 📝 문서
+
+* squash merge 지원 문서 및 발표 자료 반영 ([27b9db1](https://github.com/SOPT-all/39-STUDY-WEB-OPTIMUS/commit/27b9db1f0a78ae6918371d7060db508f1646ab24))
+
 ## 1.0.0 (2026-11-11)
 
 

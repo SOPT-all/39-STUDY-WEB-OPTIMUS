@@ -41,7 +41,9 @@ jobs:
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           REPOSITORY: ${{ github.repository }}
           PR_NUMBER: '22'
-        run: node .github/scripts/pr-summary/preview-pr.mjs "$REPOSITORY" "$PR_NUMBER" "$RUNNER_TEMP/pr-summary-preview"
+        run: |
+          node .github/scripts/pr-summary/check-model.mjs
+          node .github/scripts/pr-summary/preview-pr.mjs "$REPOSITORY" "$PR_NUMBER" "$RUNNER_TEMP/pr-summary-preview"
 
       - uses: actions/upload-artifact@v4
         with:

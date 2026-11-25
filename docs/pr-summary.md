@@ -23,7 +23,7 @@ GitHub에서 변경 코드를 가져오고, Gemini가 초안을 만든 뒤 PR �
 | 종류 | 이름 | 값 |
 |---|---|---|
 | Secret | `GEMINI_API_KEY` | Google AI Studio에서 발급한 키 |
-| Variable | `GEMINI_MODEL` | `gemini-3.8-flash` |
+| Variable | `GEMINI_MODEL` | `gemini-3.5-flash-lite` |
 
 키와 모델 이름은 별개입니다. 키는 요청 인증에 사용하고, 모델 이름은 어느 모델에 요청할지 정합니다.
 API 키는 파일이나 PR 본문에 적지 않습니다. `GITHUB_TOKEN`은 실행할 때 GitHub가 제공합니다.
@@ -127,6 +127,6 @@ AI가 제안한 확인 절차와 실제 테스트 결과는 다르므로, 작성
 ## 참고
 
 - [Gemini 콘텐츠 생성 API](https://ai.google.dev/api/generate-content)
-- [Gemini 3.8 Flash 모델 안내](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash)
+- [Gemini 3.5 Flash-Lite 모델 안내](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite)
 - [GitHub CLI API 요청](https://cli.github.com/manual/gh_api)
 - [GitHub Actions PR 이벤트](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request)

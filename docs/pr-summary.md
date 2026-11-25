@@ -92,14 +92,19 @@ node .github/scripts/pr-summary/render-body.mjs /tmp/optimus-pr-context.json /tm
 
 ## 현재 확인한 범위
 
-- 로컬 테스트 24개가 통과했습니다. AI 응답과 PR 저장은 모의 응답으로 확인했습니다.
+- 로컬 테스트 25개가 통과했습니다. AI 응답과 PR 저장은 모의 응답으로 확인했습니다.
 - 기존 PR #13의 변경 파일 10개와 코드 차이를 실제 GitHub API로 가져왔습니다.
 - Node.js 구문과 워크플로 YAML 구문을 확인했습니다.
-- [머지 전 실제 검증 실행](https://github.com/SOPT-all/39-STUDY-WEB-OPTIMUS/actions/runs/45520489923)에서 환경 준비·테스트·PR 조회 후 Gemini API에 실제 요청을 보냈습니다.
-- Gemini가 HTTP 402를 반환해 초안 생성과 결과 파일 업로드는 완료하지 못했습니다. 현재 키의 프로젝트 결제·선불 잔액 확인이 필요합니다.
-- 실제 PR 본문 갱신은 아직 확인하지 않았습니다. 이 검증에서는 PR 수정 권한을 사용하지 않았고, PR #22도 Draft로 유지했습니다.
+- [실제 Gemini 초안 생성과 본문 구성 검증](https://github.com/SOPT-all/39-STUDY-WEB-OPTIMUS/actions/runs/45524412992)이 성공했습니다.
+- `OPTIMUS Free` 무료 프로젝트 키와 `gemini-3.5-flash-lite`로 변경 파일 15개를 분석했습니다.
+- 작성자 원문 보존과 같은 초안으로 반복 구성했을 때 중복이 생기지 않는 것을 확인했습니다.
+- [실제 생성된 초안 예시](examples/pr-summary-preview.md)를 남겼습니다.
+- **실제 GitHub PR 본문 자동 저장은 이번 검증에서 실행하지 않았습니다.** PR #22는 Draft·미머지 상태입니다.
 
-실제 실행 후에는 위 상태를 결과 링크와 함께 갱신할 예정입니다.
+처음에는 기존 Tier 1 프로젝트에서 HTTP 402가 발생했습니다.
+별도 무료 프로젝트 키로 교체한 뒤에는 3.8 Flash 응답이 시간 제한에 걸렸습니다.
+요약 요청의 사고량·출력량을 제한하고 대기 시간을 180초로 조정했으며, 3.5 Flash-Lite로 실제 응답을 확인했습니다.
+결제나 충전, 기존 프로젝트의 결제 설정 변경은 하지 않았습니다.
 
 ## 실행이 실패했을 때
 

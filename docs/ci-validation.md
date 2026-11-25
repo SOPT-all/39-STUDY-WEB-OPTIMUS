@@ -66,7 +66,8 @@ GitHub Actions 워크플로와 셸 스크립트의 오류를
 - 예상:
   - push 실행: 변경 파일 확인은 통과하고 두 검사는 Skipped로 표시된다.
   - PR 실행: PR 전체에 `ci.yml` 변경이 있으므로 두 검사를 실행한다.
-- 결과: 확인 예정.
+- 결과: 문서만 변경한 push에서 변경 파일 확인은 통과하고,
+  Workflow 검사와 Shell 검사는 모두 Skipped로 표시됐다.
 
 ## push와 PR의 비교 범위
 

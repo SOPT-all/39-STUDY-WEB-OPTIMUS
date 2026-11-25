@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [test, main]
+  push:
+    branches: [auto/ci-pr-validation-yumin]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: 변경 파일 확인
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      contents: read
+      pull-requests: read
+
+    outputs:
+      workflow: ${{ steps.filter.outputs.workflow }}
+      shell: ${{ steps.filter.outputs.shell }}
+
+    steps:
+      - name: 저장소 가져오기
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: 변경 파일 분류
+        uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          base: ${{ github.event.before || 'test' }}
+          filters: |
+            workflow:
+              - '.github/workflows/**'
+            shell:
+              - '.github/scripts/*.sh'
+              - '.githooks/**'
+              - '.github/workflows/ci.yml'
+
+  workflow-lint:
+    name: Workflow 검사
+    needs: changes
+    if: needs.changes.outputs.workflow == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: 저장소 가져오기
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: GitHub Actions 설정 검사
+        uses: docker://rhysd/actionlint:1.7.12
+        with:
+          args: -color
+
+  shell-lint:
+    name: Shell 검사
+    needs: changes
+    if: needs.changes.outputs.shell == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: 저장소 가져오기
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: 셸 스크립트 검사
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/mnt" \
+            -w /mnt \
+            koalaman/shellcheck:v0.11.0 \
+            .github/scripts/*.sh .githooks/commit-msg

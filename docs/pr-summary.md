@@ -148,3 +148,7 @@ AI가 제안한 확인 절차와 실제 테스트 결과는 다르므로, 작성
 - [Gemini 3.5 Flash-Lite 모델 안내](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite)
 - [GitHub CLI API 요청](https://cli.github.com/manual/gh_api)
 - [GitHub Actions PR 이벤트](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request)
+
+## 발표 페이지
+
+[발표 페이지 소스와 실행 방법](pr-summary-presentation/README.md)에 17개 화면을 정리했습니다.

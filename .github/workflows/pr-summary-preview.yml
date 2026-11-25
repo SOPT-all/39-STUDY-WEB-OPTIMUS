@@ -1,0 +1,51 @@
+name: AI PR Summary Preview
+
+# 최초 도입 검증용. 명시한 작업 브랜치를 push할 때만 실행합니다.
+# 일반 PR 이벤트에서 임의의 PR 코드를 API 키와 함께 실행하지 않습니다.
+on:
+  push:
+    branches: [auto/pr-summary-minsik]
+    paths:
+      - '.github/scripts/pr-summary/**'
+      - '.github/workflows/pr-summary-preview.yml'
+      - 'docs/templates/ai-pr-body.md'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ai-pr-summary-preview
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run tests
+        run: node --test .github/scripts/pr-summary/*.test.mjs
+
+      - name: Generate preview without changing PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: '22'
+        run: node .github/scripts/pr-summary/preview-pr.mjs "$REPOSITORY" "$PR_NUMBER" "$RUNNER_TEMP/pr-summary-preview"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr-summary-preview
+          path: ${{ runner.temp }}/pr-summary-preview/
+          if-no-files-found: error
+          retention-days: 1

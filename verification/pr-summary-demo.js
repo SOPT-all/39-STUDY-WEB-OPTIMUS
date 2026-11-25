@@ -1,3 +1,3 @@
 export function formatTitle(title) {
-  return title.toUpperCase();
+  return title.trim().toUpperCase();
 }

@@ -1,3 +1,3 @@
 export function formatName(name) {
-  return name.toLowerCase();
+  return name.trim().toLowerCase();
 }

@@ -95,7 +95,9 @@ node .github/scripts/pr-summary/render-body.mjs /tmp/optimus-pr-context.json /tm
 - 로컬 테스트 24개가 통과했습니다. AI 응답과 PR 저장은 모의 응답으로 확인했습니다.
 - 기존 PR #13의 변경 파일 10개와 코드 차이를 실제 GitHub API로 가져왔습니다.
 - Node.js 구문과 워크플로 YAML 구문을 확인했습니다.
-- **실제 Gemini 응답과 Actions의 PR 본문 갱신은 아직 확인하지 않았습니다.**
+- [머지 전 실제 검증 실행](https://github.com/SOPT-all/39-STUDY-WEB-OPTIMUS/actions/runs/45520489923)에서 환경 준비·테스트·PR 조회 후 Gemini API에 실제 요청을 보냈습니다.
+- Gemini가 HTTP 402를 반환해 초안 생성과 결과 파일 업로드는 완료하지 못했습니다. 현재 키의 프로젝트 결제·선불 잔액 확인이 필요합니다.
+- 실제 PR 본문 갱신은 아직 확인하지 않았습니다. 이 검증에서는 PR 수정 권한을 사용하지 않았고, PR #22도 Draft로 유지했습니다.
 
 실제 실행 후에는 위 상태를 결과 링크와 함께 갱신할 예정입니다.
 
@@ -107,6 +109,7 @@ node .github/scripts/pr-summary/render-body.mjs /tmp/optimus-pr-context.json /tm
 | `GEMINI_MODEL` 오류 | Variables에 모델 이름이 등록됐는지 |
 | HTTP 400 또는 404 | 모델 이름, 요청 형식, 키와 모델의 지원 범위 |
 | HTTP 401 또는 403 | 키 인증 상태와 프로젝트 접근 권한 |
+| HTTP 402 | AI Studio 프로젝트의 결제 상태와 선불 크레딧 잔액 |
 | HTTP 429 | API 사용 한도와 요청 빈도 |
 | GitHub API 요청 실패 | Actions의 PR 쓰기 권한과 조직 정책 |
 | AI 영역 표시 오류 | 시작·끝 표시가 삭제되거나 중복됐는지 |

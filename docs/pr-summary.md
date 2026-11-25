@@ -38,7 +38,14 @@ GitHub 토큰은 읽기 권한만 사용하며, Draft 해제·PR 본문 수정·
 이 실행은 Gemini 호출과 본문 생성을 검증합니다. GitHub에 본문을 저장하는 동작은 별도 검증이 필요합니다.
 최초 검증을 위한 전용 경로이므로 다른 작업 브랜치나 외부 PR에서는 실행되지 않습니다.
 
-## 최초 적용과 실제 PR 반영 검증
+## 머지 전 실제 본문 저장 검증
+
+`AI PR Summary Publication Test`는 `auto/pr-summary-check-minsik`의 push에만 반응합니다.
+`auto/pr-summary-minsik`을 대상으로 열린 전용 테스트 PR 하나를 찾고, 도입 브랜치의 `update-pr.mjs`를 실행합니다.
+테스트 PR 자체에 들어 있는 코드는 실행하지 않습니다. 다른 PR이나 대상 브랜치를 머지하지도 않습니다.
+최초 도입 검증에서 두 번의 저장을 확인했으며, 현재 테스트 PR은 닫혀 있어 해당 경로는 저장을 건너뜁니다.
+
+## 정규 PR 이벤트 적용과 확인
 
 자동화는 PR에서 바뀐 스크립트 대신 대상 브랜치의 스크립트를 실행합니다.
 따라서 처음 기능을 추가하는 PR은 대상 브랜치에 코드가 없어 안내 메시지만 남기고 건너뜁니다.
@@ -99,7 +106,11 @@ node .github/scripts/pr-summary/render-body.mjs /tmp/optimus-pr-context.json /tm
 - `OPTIMUS Free` 무료 프로젝트 키와 `gemini-3.5-flash-lite`로 변경 파일 15개를 분석했습니다.
 - 작성자 원문 보존과 같은 초안으로 반복 구성했을 때 중복이 생기지 않는 것을 확인했습니다.
 - [실제 생성된 초안 예시](examples/pr-summary-preview.md)를 남겼습니다.
-- **실제 GitHub PR 본문 자동 저장은 이번 검증에서 실행하지 않았습니다.** PR #22는 Draft·미머지 상태입니다.
+- [테스트 PR #23](https://github.com/SOPT-all/39-STUDY-WEB-OPTIMUS/pull/23)에서 실제 본문 저장과 새 커밋 이후 갱신을 확인했습니다.
+- [첫 실행](https://github.com/SOPT-all/39-STUDY-WEB-OPTIMUS/actions/runs/45525917430)과 [갱신 실행](https://github.com/SOPT-all/39-STUDY-WEB-OPTIMUS/actions/runs/45526054637) 모두 성공했고, 작성자 영역 전체가 유지됐습니다.
+- [비교한 결과와 실제 문장](examples/pr-summary-publication.md)을 기록했습니다.
+- 테스트 PR은 머지 없이 닫았습니다. 도입 PR #22는 Draft 상태이며 `test`와 `main`에는 머지하지 않았습니다.
+- 정규 `pull_request` 이벤트 경로의 실행은 아직 확인하지 않았습니다. 이번 실제 저장 검증은 지정한 테스트 브랜치 push 이벤트로 같은 운영용 스크립트를 실행했습니다.
 
 처음에는 기존 Tier 1 프로젝트에서 HTTP 402가 발생했습니다.
 별도 무료 프로젝트 키로 교체한 뒤에는 3.8 Flash 응답이 시간 제한에 걸렸습니다.

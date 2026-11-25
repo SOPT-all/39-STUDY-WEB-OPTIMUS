@@ -2,7 +2,7 @@ name: AI PR Summary
 
 on:
   pull_request:
-    branches: [test, main]
+    branches: [test, main, auto/pr-summary-minsik]
     types: [opened, synchronize, reopened, ready_for_review]
 
 permissions: {}

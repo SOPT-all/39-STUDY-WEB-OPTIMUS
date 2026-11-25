@@ -34,7 +34,7 @@ export async function generateDraft(context, {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        signal: AbortSignal.timeout(60000),
+        signal: AbortSignal.timeout(180000),
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: instructions }] },
           contents: [{ role: 'user', parts: [{ text: JSON.stringify({
@@ -42,6 +42,8 @@ export async function generateDraft(context, {
             files: context.files,
           }) }] }],
           generationConfig: {
+            thinkingConfig: { thinkingLevel: 'low' },
+            maxOutputTokens: 8192,
             responseMimeType: 'application/json',
             responseJsonSchema: {
               type: 'object',
@@ -55,8 +57,10 @@ export async function generateDraft(context, {
         }),
       },
     );
-  } catch {
-    throw new Error('Gemini에 연결하지 못했거나 요청 시간이 초과됐습니다.');
+  } catch (error) {
+    throw new Error(error.name === 'TimeoutError' || error.name === 'AbortError'
+      ? 'Gemini 응답 대기 시간(180초)을 초과했습니다.'
+      : 'Gemini에 연결하지 못했습니다.');
   }
   // 서버 응답 원문에는 입력 자료가 포함될 수 있으므로 상태 코드만 알립니다.
   if (!response.ok) throw new Error(`Gemini 요청 실패 (HTTP ${response.status}).`);

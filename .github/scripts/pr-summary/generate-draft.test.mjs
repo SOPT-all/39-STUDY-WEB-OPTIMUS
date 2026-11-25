@@ -17,6 +17,8 @@ test('변경 자료와 출력 형식을 전달하고 검증된 초안을 반환�
     assert.equal(init.headers['x-goog-api-key'], options.apiKey);
     assert.ok(!url.includes(options.apiKey));
     const body = JSON.parse(init.body);
+    assert.equal(body.generationConfig.thinkingConfig.thinkingLevel, 'low');
+    assert.equal(body.generationConfig.maxOutputTokens, 8192);
     const data = JSON.parse(body.contents[0].parts[0].text);
     assert.deepEqual(data.files, context.files);
     assert.equal(data.body, undefined); // 작성자 본문을 재요약하거나 입력으로 반복하지 않는다.
@@ -45,7 +47,7 @@ test('HTTP 오류 응답 원문을 노출하지 않는다', async () => {
 test('네트워크 오류의 원문을 노출하지 않는다', async () => {
   await assert.rejects(generateDraft(context, { ...options,
     request: async () => { throw new Error('private details'); },
-  }), { message: 'Gemini에 연결하지 못했거나 요청 시간이 초과됐습니다.' });
+  }), { message: 'Gemini에 연결하지 못했습니다.' });
 });
 
 test('토큰 제한으로 잘린 응답과 차단된 응답은 사용하지 않는다', async () => {
@@ -63,4 +65,10 @@ test('필수 항목 누락과 AI 영역 표시를 삽입하는 응답은 거절�
       request: async () => success(invalid),
     }), /초안 형식/);
   }
+});
+
+test('시간 초과와 연결 실패를 구분한다', async () => {
+  await assert.rejects(generateDraft(context, { ...options,
+    request: async () => { throw new DOMException('timeout', 'TimeoutError'); },
+  }), { message: 'Gemini 응답 대기 시간(180초)을 초과했습니다.' });
 });

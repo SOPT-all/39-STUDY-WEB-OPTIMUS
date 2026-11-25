@@ -159,3 +159,8 @@ B --> C[main]
 | `feat`                      | `1.0.0 → 1.1.0` (minor)         |
 | `fix` `refactor` `docs`     | `1.0.0 → 1.0.1` (patch)         |
 | `chore`                     | 릴리즈 노트에서 제외, 버전 유지 |
+
+
+### AI 기반 PR 설명 자동화
+
+[설정 방법과 실행·검증 순서](docs/pr-summary.md)를 정리했습니다.

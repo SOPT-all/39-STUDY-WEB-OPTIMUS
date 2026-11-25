@@ -1,0 +1,54 @@
+name: AI PR Summary Publication Test
+
+# 최초 도입 전 실제 저장을 확인하기 위한 지정 브랜치 전용 경로입니다.
+on:
+  push:
+    branches: [auto/pr-summary-check-minsik]
+
+permissions: {}
+
+concurrency:
+  group: ai-pr-summary-publication-test
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # 테스트 PR 쪽 파일은 실행하지 않습니다. 검토 중인 도입 브랜치의 코드만 사용합니다.
+      - uses: actions/checkout@v4
+        with:
+          ref: auto/pr-summary-minsik
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Find dedicated test PR
+        id: target
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          PR_NUMBER=$(gh pr list --repo "$REPOSITORY" --state open \
+            --head auto/pr-summary-check-minsik --base auto/pr-summary-minsik \
+            --json number --jq 'if length == 1 then .[0].number else empty end')
+          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          if [ -z "$PR_NUMBER" ]; then
+            echo "::notice::열린 전용 테스트 PR이 없어 건너뜁니다."
+          fi
+
+      - name: Generate and save test PR summary
+        if: steps.target.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.target.outputs.number }}
+        run: node .github/scripts/pr-summary/update-pr.mjs "$REPOSITORY" "$PR_NUMBER"

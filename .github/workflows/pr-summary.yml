@@ -1,0 +1,54 @@
+name: AI PR Summary
+
+on:
+  pull_request:
+    branches: [test, main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions: {}
+
+concurrency:
+  group: ai-pr-summary-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  summarize:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # PR 쪽 코드를 실행하지 않고, 검토 후 반영된 대상 브랜치 코드를 사용합니다.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check installation
+        id: installation
+        run: |
+          if [ -f .github/scripts/pr-summary/update-pr.mjs ]; then
+            echo "installed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "installed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::최초 도입 PR입니다. 대상 브랜치에 반영한 뒤 후속 PR에서 실제 동작을 확인합니다."
+          fi
+
+      - name: Generate and update PR summary
+        if: steps.installation.outputs.installed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node .github/scripts/pr-summary/update-pr.mjs "$REPOSITORY" "$PR_NUMBER"

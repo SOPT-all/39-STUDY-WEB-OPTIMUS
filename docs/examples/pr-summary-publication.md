@@ -36,3 +36,5 @@ Gemini 응답을 실제 GitHub PR 본문에 저장한 뒤, API로 본문을 다�
 이번에는 지정한 테스트 브랜치의 push 이벤트로 운영용 `update-pr.mjs`를 실행했습니다.
 따라서 실제 Gemini 호출과 GitHub 본문 저장·갱신은 확인했지만,
 `test`와 `main`을 대상으로 한 정규 `pull_request` 이벤트 경로는 아직 실행하지 않았습니다.
+
+이후 [실제 PR 이벤트 경로도 별도로 검증](pr-summary-events.md)했습니다.

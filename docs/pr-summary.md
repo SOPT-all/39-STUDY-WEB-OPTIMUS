@@ -110,7 +110,9 @@ node .github/scripts/pr-summary/render-body.mjs /tmp/optimus-pr-context.json /tm
 - [첫 실행](https://github.com/SOPT-all/39-STUDY-WEB-OPTIMUS/actions/runs/45525917430)과 [갱신 실행](https://github.com/SOPT-all/39-STUDY-WEB-OPTIMUS/actions/runs/45526054637) 모두 성공했고, 작성자 영역 전체가 유지됐습니다.
 - [비교한 결과와 실제 문장](examples/pr-summary-publication.md)을 기록했습니다.
 - 테스트 PR은 머지 없이 닫았습니다. 도입 PR #22는 Draft 상태이며 `test`와 `main`에는 머지하지 않았습니다.
-- 정규 `pull_request` 이벤트 경로의 실행은 아직 확인하지 않았습니다. 이번 실제 저장 검증은 지정한 테스트 브랜치 push 이벤트로 같은 운영용 스크립트를 실행했습니다.
+- [정규 PR 생성 이벤트](https://github.com/SOPT-all/39-STUDY-WEB-OPTIMUS/actions/runs/45529137907)와 [새 커밋 이벤트](https://github.com/SOPT-all/39-STUDY-WEB-OPTIMUS/actions/runs/45529616329)의 실제 본문 저장·갱신도 성공했습니다.
+- 이 검증은 테스트 PR에서만 대상 브랜치 이름을 임시 확장하고 동일 워크플로를 실행했습니다. 운영 설정은 `test`, `main`으로 유지했습니다.
+- [PR 이벤트 검증 근거](examples/pr-summary-events.md)에 실행 결과와 작성자 영역 비교를 기록했습니다.
 
 처음에는 기존 Tier 1 프로젝트에서 HTTP 402가 발생했습니다.
 별도 무료 프로젝트 키로 교체한 뒤에는 3.8 Flash 응답이 시간 제한에 걸렸습니다.
